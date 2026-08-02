@@ -1,0 +1,28 @@
+{
+    "name": "com.nkstudio.uitk-navigation.editor.tests",
+    "rootNamespace": "NKStudio.UITKNavigation.Editor.Tests",
+    "references": [
+        "com.nkstudio.uitk-navigation.runtime",
+        "com.nkstudio.uitk-navigation.editor",
+        "LitMotion",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "ZLinq.Unity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "ZLinq.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

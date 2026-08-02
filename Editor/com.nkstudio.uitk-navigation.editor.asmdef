@@ -1,0 +1,21 @@
+{
+    "name": "com.nkstudio.uitk-navigation.editor",
+    "rootNamespace": "NKStudio.UITKNavigation.Editor",
+    "references": [
+        "com.nkstudio.uitk-navigation.runtime",
+        "LitMotion",
+        "LitMotion.Editor",
+        "ZLinq.Unity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

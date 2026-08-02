@@ -1,0 +1,59 @@
+.nk-transition-root {
+    color: var(--unity-colors-default-text);
+}
+
+.nk-transition-tab {
+    background-color: var(--unity-colors-tab-background);
+    border-top-color: var(--unity-colors-toolbar_button-border);
+    border-right-color: var(--unity-colors-toolbar_button-border);
+    border-bottom-color: var(--unity-colors-toolbar_button-border);
+    border-left-color: var(--unity-colors-toolbar_button-border);
+}
+
+.nk-transition-tab:hover {
+    background-color: var(--unity-colors-toolbar_button-background-hover);
+}
+
+.nk-transition-tab--active {
+    background-color: var(--unity-colors-tab-background-checked);
+}
+
+.nk-transition-channel-card {
+    background-color: var(--unity-colors-inspector_titlebar-background);
+}
+
+/* 컨테이너(채널 카드)는 원래 중간 회색 그대로 두고, 안쪽 필드 카드의 검은 톤만 바꾼다. */
+.nk-transition-field-card {
+    background-color: var(--unity-colors-button-background);
+    border-top-color: var(--unity-colors-default-border);
+    border-right-color: var(--unity-colors-default-border);
+    border-bottom-color: var(--unity-colors-default-border);
+    border-left-color: var(--unity-colors-default-border);
+}
+
+.nk-transition-title {
+    color: var(--unity-colors-default-text);
+}
+
+.nk-transition-title--active {
+    color: var(--unity-colors-default-text-hover);
+}
+
+.nk-transition-caption {
+    color: var(--unity-colors-label-text);
+}
+
+.nk-transition-direction-cell {
+    background-color: var(--unity-colors-toolbar-background);
+    border-top-color: var(--unity-colors-toolbar-border);
+    border-right-color: var(--unity-colors-toolbar-border);
+    border-bottom-color: var(--unity-colors-toolbar-border);
+    border-left-color: var(--unity-colors-toolbar-border);
+}
+
+/* 선택 표시는 인라인 색 대신 이 클래스로 켠다.
+   인라인 배경색을 지우는 방식은 이전 선택이 남는 경우가 있어 켜고 끄는 판정이 어긋난다.
+   기본 규칙과 특이도가 같으므로 반드시 그 아래에 두어야 이긴다. */
+.nk-transition-direction-cell--on {
+    background-color: rgb(99, 153, 34);
+}

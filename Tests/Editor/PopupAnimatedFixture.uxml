@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:popup="NKStudio.UITKNavigation.Popup">
+    <popup:UIPopupView>
+        <popup:UIPopupContent name="animated-content">
+            <ui:Button text="Focusable" />
+        </popup:UIPopupContent>
+        <content-transitions>
+            <NKStudio.UITKNavigation.Animation.UITransitionSet>
+                <show>
+                    <NKStudio.UITKNavigation.Animation.UITransitionSettings>
+                        <fade>
+                            <NKStudio.UITKNavigation.Animation.UIFadeSettings enable="true" from-type="CustomValue" from-custom="0" duration="0.2" />
+                        </fade>
+                    </NKStudio.UITKNavigation.Animation.UITransitionSettings>
+                </show>
+                <hide>
+                    <NKStudio.UITKNavigation.Animation.UITransitionSettings>
+                        <fade>
+                            <NKStudio.UITKNavigation.Animation.UIFadeSettings enable="true" to-type="CustomValue" to-custom="0" duration="0.2" />
+                        </fade>
+                    </NKStudio.UITKNavigation.Animation.UITransitionSettings>
+                </hide>
+            </NKStudio.UITKNavigation.Animation.UITransitionSet>
+        </content-transitions>
+    </popup:UIPopupView>
+</ui:UXML>

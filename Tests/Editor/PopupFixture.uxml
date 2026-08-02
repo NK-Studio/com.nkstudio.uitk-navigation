@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:popup="NKStudio.UITKNavigation.Popup">
+    <popup:UIPopupView name="popup-view" back-behavior="Close" close-on-backdrop="false">
+        <popup:UIPopupBackdrop name="popup-backdrop" />
+        <popup:UIPopupContent name="popup-content">
+            <ui:Label name="popup-label" text="Popup">
+                <Bindings>
+                    <ui:DataBinding property="text" data-source-path="Value" binding-mode="ToTarget"/>
+                </Bindings>
+            </ui:Label>
+            <popup:UIPopupActionButton name="keep-open" action-id="keep" close-popup="false" />
+            <popup:UIPopupActionButton name="close" action-id="confirm" close-popup="true" />
+        </popup:UIPopupContent>
+    </popup:UIPopupView>
+</ui:UXML>

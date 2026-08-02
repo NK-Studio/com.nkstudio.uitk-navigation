@@ -1,0 +1,21 @@
+{
+  "name": "com.nkstudio.uitk-navigation",
+  "displayName": "UITK Navigation",
+  "version": "0.2.0",
+  "unity": "6000.6",
+  "unityRelease": "0b5",
+  "description": "Graph-authored navigation, animated views, and panel-local popup stacks for Unity UI Toolkit.\n\n▪ Graph Toolkit authoring compiled from .uinavgraph into a runtime navigation asset\n▪ NavElement, NavButton, and NavToggle UXML elements with a project-wide Key Catalog\n▪ LitMotion-backed Move / Rotate / Scale / Fade Show and Hide transitions\n▪ Back / Forward history, timed and toggle routes, and scene or application action nodes\n▪ LIFO popup stack with data binding, async results, focus restoration, and per-template Back behavior\n\nRequires LitMotion (com.annulusgames.lit-motion) and ZLinq (com.cysharp.zlinq). Install both separately from their Git URLs before installing this package.",
+  "author": {
+    "name": "NK Studio",
+    "url": "https://nk-studio.github.io/portfolio/index.html",
+    "email": "bnm000215@naver.com"
+  },
+  "changelogUrl": "https://nk-studio.github.io/Packages/com.nkstudio.uitk-navigation@0.2/changelog/CHANGELOG.html",
+  "documentationUrl": "https://nk-studio.github.io/Packages/com.nkstudio.uitk-navigation@0.2/manual/index.html",
+  "licensesUrl": "https://nk-studio.github.io/Packages/com.nkstudio.uitk-navigation@0.2/license/License.html",
+  "dependencies": {
+    "com.unity.graphtoolkit": "0.5.0-exp.1",
+    "com.unity.inputsystem": "1.19.0",
+    "com.unity.modules.uielements": "1.0.0"
+  }
+}

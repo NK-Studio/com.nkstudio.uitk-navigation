@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:popup="NKStudio.UITKNavigation.Popup">
+    <popup:UIPopupView><popup:UIPopupContent /></popup:UIPopupView>
+    <popup:UIPopupView><popup:UIPopupContent /></popup:UIPopupView>
+</ui:UXML>

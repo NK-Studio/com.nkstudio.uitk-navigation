@@ -1,0 +1,245 @@
+.uinavigation-phase {
+    margin-top: 6px;
+    margin-bottom: 8px;
+}
+
+.uinavigation-phase__header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.uinavigation-phase__icon-box,
+.uinavigation-phase__title {
+    height: 38px;
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-radius: 6px;
+}
+
+.uinavigation-phase__icon-box {
+    width: 38px;
+    align-items: center;
+    justify-content: center;
+}
+
+.uinavigation-phase__icon {
+    width: 22px;
+    height: 22px;
+    -unity-background-scale-mode: scale-to-fit;
+    -unity-background-image-tint-color: var(--unity-colors-default-text);
+}
+
+.uinavigation-phase__title {
+    flex-grow: 1;
+    margin-left: 6px;
+    padding-left: 12px;
+    font-size: 15px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+    color: var(--unity-colors-default-text);
+}
+
+.uinavigation-phase__body {
+    padding: 10px 12px 7px 12px;
+    background-color: var(--unity-colors-default-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-default-border);
+    border-radius: 7px;
+}
+
+.uinavigation-list-root {
+    margin-bottom: 7px;
+}
+
+.uinavigation-view-section {
+    padding: 10px 12px 6px 12px;
+    margin-bottom: 12px;
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-default-border);
+    border-radius: 7px;
+}
+
+.uinavigation-output-section {
+    padding: 10px 12px 6px 12px;
+    margin-top: 0;
+    margin-bottom: 0;
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-default-border);
+    border-radius: 7px;
+}
+
+.uinavigation-output-section > .uinavigation-list-header > .uinavigation-list-title {
+    display: none;
+}
+
+.uinavigation-list-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.uinavigation-list-title {
+    flex-grow: 1;
+    -unity-font-style: bold;
+    color: var(--unity-colors-default-text);
+}
+
+.uinavigation-view-section > .uinavigation-list-header > .uinavigation-list-title,
+.uinavigation-output-section > .uinavigation-list-header > .uinavigation-list-title {
+    color: var(--unity-colors-default-text);
+}
+
+.uinavigation-list-description {
+    margin-top: -3px;
+    margin-bottom: 8px;
+    font-size: 10px;
+    color: var(--unity-colors-label-text);
+}
+
+.uinavigation-list-count {
+    margin-right: 5px;
+    color: var(--unity-colors-label-text);
+}
+
+.uinavigation-list-add {
+    height: 22px;
+}
+
+.uinavigation-output-add {
+    height: 26px;
+    margin-top: 8px;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.uinavigation-list-empty {
+    height: 28px;
+    -unity-text-align: middle-center;
+    color: var(--unity-colors-label-text);
+    background-color: var(--unity-colors-tab-background);
+    border-radius: 4px;
+}
+
+.uinavigation-command-card {
+    flex-direction: row;
+    align-items: stretch;
+    padding: 7px 7px 7px 10px;
+    margin-bottom: 4px;
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-default-border);
+    border-radius: 6px;
+}
+
+.uinavigation-command-card__fields {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.uinavigation-command-card__divider {
+    width: 1px;
+    margin-left: 8px;
+    margin-right: 7px;
+    background-color: var(--unity-colors-default-border);
+}
+
+.uinavigation-command-card__remove {
+    width: 30px;
+    height: 30px;
+    align-self: center;
+    margin: 0;
+}
+
+.uinavigation-remove-button {
+    width: 24px;
+    height: 22px;
+    margin-left: 3px;
+}
+
+.uinavigation-random-card {
+    flex-direction: row;
+    align-items: center;
+    padding: 5px 5px 5px 9px;
+    margin-bottom: 4px;
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-default-border);
+    border-radius: 6px;
+}
+
+.uinavigation-random-card__index {
+    width: 14px;
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+    color: var(--unity-colors-label-text);
+}
+
+.uinavigation-random-card__value {
+    width: 30px;
+    margin-right: 8px;
+    -unity-text-align: middle-right;
+    color: var(--unity-colors-default-text);
+}
+
+.uinavigation-random-card__slider {
+    flex-grow: 1;
+    margin-left: 0;
+    margin-right: 2px;
+}
+
+/* Unity 기본 슬라이더는 라벨 기준선에 맞추려고 트랙과 드래거를 드래그 영역 중앙보다 2px 아래에 둔다.
+   이 카드에는 라벨이 없어 아래로 치우쳐 보이므로 두 요소를 다시 세로 중앙으로 올린다. */
+.uinavigation-random-card__slider .unity-base-slider__tracker {
+    top: 4px;
+}
+
+.uinavigation-random-card__slider .unity-base-slider__dragger {
+    top: -2px;
+}
+
+.uinavigation-random-card__refresh {
+    width: 18px;
+    height: 16px;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
+    margin: 0 0 0 4px;
+    padding: 0;
+    border-width: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.uinavigation-output-card__header {
+    flex-direction: row;
+    align-items: center;
+}
+
+.uinavigation-output-card__kind {
+    width: 28px;
+    height: 22px;
+    margin-right: 7px;
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    color: var(--unity-colors-label-text);
+}
+
+.uinavigation-output-card__condition {
+    margin-left: 7px;
+}
+
+.uinavigation-output-card__address {
+    margin-left: 35px;
+    margin-top: 6px;
+}
+
+.uinavigation-list-item-content,
+.uinavigation-list .unity-collection-element__item,
+.uinavigation-list .unity-list-element__item,
+.uinavigation-list .unity-collection-element__item:hover,
+.uinavigation-list .unity-collection-element__item:checked,
+.uinavigation-list .unity-list-element__item:hover,
+.uinavigation-list .unity-list-element__item:checked {
+    background-color: rgba(0, 0, 0, 0);
+}

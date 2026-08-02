@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:popup="NKStudio.UITKNavigation.Popup">
+    <popup:UIPopupView name="alternate-popup" back-behavior="Close">
+        <popup:UIPopupContent name="alternate-content">
+            <ui:Label text="Structurally different popup" />
+        </popup:UIPopupContent>
+    </popup:UIPopupView>
+</ui:UXML>
