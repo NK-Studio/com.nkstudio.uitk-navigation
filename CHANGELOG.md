@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0] - 2026-08-03
+
+### Added
+
+- AI 및 에디터 코드 레이어에서 접근하기 쉽도록 `UINavigationPortalNode` 및 `UINavigationGraphBuilder` 코드-퍼스트 오소링 API 지원을 추가했습니다 (`AddPortal`, `PortalNode`, `Connect(PortalNode, ScreenNode)`).
+- `UINavigationPortalConditionDrawer` 커스텀 프로퍼티 드로어를 UI 노드 인스펙터 스타일과 동일한 `uinavigation-phase` 카드 디자인(SVG 아이콘, 헤더, 라운딩 박스)으로 구현했습니다.
+
+### Changed
+
+- 패키지 버전을 `0.3.0`으로 올렸습니다.
+- Portal 노드의 옵션(`DisplayName`, `Condition`, `History`)에 `.ShowInInspectorOnly()`를 적용하여 캔버스 노드 바디를 콤팩트하게 유지하고, 인스펙터 창에서 조작할 수 있도록 개선했습니다.
+- Portal 노드의 Output 포트 표기를 고정 텍스트(`Force Transition`) 대신 설정된 조건에 맞춰 자동 표시되도록 수정했습니다.
+
 ## [0.2.0] - 2026-08-02
 
 ### Added

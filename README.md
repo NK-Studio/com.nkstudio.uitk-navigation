@@ -81,6 +81,36 @@ LitMotion과 ZLinq는 Git 패키지이므로 UITK Navigation의 레지스트리 
 
 Key는 **Tools > UI Navigation > Key Catalog**에서 관리합니다. **Scan Project**는 UXML과 Graph 사용처를 수집하며 Rename은 변경될 참조를 미리 보여준 뒤 함께 수정합니다.
 
+### 코드 또는 AI로 그래프 생성
+
+Editor 자동화에서는 공개 `UINavigationGraphBuilder` API로 편집 가능한 `.uinavgraph`를 만들 수 있습니다. 경로, 노드 좌표, 출력과 연결을 선언하면 Graph Toolkit 내부 타입이나 리플렉션 없이 저장되며 사용한 Key도 Catalog에 등록됩니다.
+
+```csharp
+using NKStudio.UITKNavigation.Editor.Navigation;
+using NKStudio.UITKNavigation.Identity;
+using UnityEngine;
+
+var graph = UINavigationGraphBuilder.Create(
+    "Assets/UI/MainNavigation.uinavgraph",
+    overwrite: true);
+
+var start = graph.AddStart(new Vector2(40, 160));
+var home = graph.AddScreen("home", "Home", new Vector2(300, 100))
+    .WithHistory(clearOnEnter: true)
+    .ShowViewsOnEnter(new UIKey("Main", "Home"));
+var settings = graph.AddScreen("settings", "Settings", new Vector2(760, 100))
+    .WithHistory(useBack: true)
+    .ShowViewsOnEnter(new UIKey("Main", "Settings"));
+
+graph.Connect(start, home);
+graph.Connect(
+    home.AddButtonOutput(new UIKey("Main", "OpenSettings")),
+    settings);
+graph.Save(openGraph: true);
+```
+
+`Create`는 아직 파일을 변경하지 않고, `Save` 시점에 생성 또는 교체합니다. `overwrite: false`가 기본값이므로 기존 그래프를 실수로 덮어쓰지 않습니다.
+
 ## 전환 애니메이션
 
 `UIViewVisibility`는 `NotVisible`, `Showing`, `Visible`, `Hiding` 상태를 관리합니다. 진행 중 반대 명령을 받으면 하나의 LitMotion 모션을 반전해 자연스럽게 이어갑니다.
