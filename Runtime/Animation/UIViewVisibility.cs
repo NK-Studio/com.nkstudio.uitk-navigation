@@ -65,7 +65,7 @@ namespace NKStudio.UITKNavigation.Animation
             _restVisibility = gate.style.visibility;
 
             if (animateGate)
-                _layers.Add(new Layer(gate, null));
+                _layers.Add(new Layer(gate, null, null));
 
             _detachCallback = _ => OnDetachedFromPanel();
             _gate.RegisterCallback(_detachCallback);
@@ -80,22 +80,6 @@ namespace NKStudio.UITKNavigation.Animation
         /// Gets the gate.
         /// </summary>
         public VisualElement Gate => _gate;
-
-        /// <summary>
-        /// Gets the preset.
-        /// </summary>
-        public UIAnimationPreset Preset
-        {
-            get => _layers.Count > 0 && _layers[0].Element == _gate ? _layers[0].Preset : null;
-            set
-            {
-                if (_layers.Count > 0 && _layers[0].Element == _gate)
-                {
-                    _layers[0] = _layers[0].WithPreset(value);
-                    RefreshUsageHints();
-                }
-            }
-        }
 
         /// <summary>
         /// Gets the show animation.
@@ -237,26 +221,14 @@ namespace NKStudio.UITKNavigation.Animation
         private event Action Disposing;
 
         /// <summary>
-        /// Adds l ay er.
-        /// </summary>
-        public void AddLayer(VisualElement element, UIAnimationPreset preset)
-        {
-            if (element == null)
-                return;
-
-            _layers.Add(new Layer(element, preset));
-            RefreshUsageHints();
-        }
-
-        /// <summary>
-        /// Adds l ay er.
+        /// Adds layer.
         /// </summary>
         internal void AddLayer(VisualElement element, UIAnimation showAnimation, UIAnimation hideAnimation)
         {
             if (element == null)
                 return;
 
-            _layers.Add(new Layer(element, null, showAnimation, hideAnimation));
+            _layers.Add(new Layer(element, showAnimation, hideAnimation));
             RefreshUsageHints();
         }
 
@@ -771,7 +743,6 @@ namespace NKStudio.UITKNavigation.Animation
         private readonly struct Layer
         {
             public readonly VisualElement Element;
-            public readonly UIAnimationPreset Preset;
             internal readonly UIAnimation ShowAnimation;
             internal readonly UIAnimation HideAnimation;
 
@@ -780,29 +751,21 @@ namespace NKStudio.UITKNavigation.Animation
             /// </summary>
             public readonly UsageHints AppliedHints;
 
-            public Layer(VisualElement element, UIAnimationPreset preset)
-                : this(element, preset, null, null, UsageHints.None)
-            {
-            }
-
             public Layer(
                 VisualElement element,
-                UIAnimationPreset preset,
                 UIAnimation showAnimation,
                 UIAnimation hideAnimation)
-                : this(element, preset, showAnimation, hideAnimation, UsageHints.None)
+                : this(element, showAnimation, hideAnimation, UsageHints.None)
             {
             }
 
             private Layer(
                 VisualElement element,
-                UIAnimationPreset preset,
                 UIAnimation showAnimation,
                 UIAnimation hideAnimation,
                 UsageHints appliedHints)
             {
                 Element = element;
-                Preset = preset;
                 ShowAnimation = showAnimation;
                 HideAnimation = hideAnimation;
                 AppliedHints = appliedHints;
@@ -811,7 +774,7 @@ namespace NKStudio.UITKNavigation.Animation
             /// <summary>
             /// Gets a value indicating whether s animation.
             /// </summary>
-            public bool HasAnimation => Preset != null || ShowAnimation != null || HideAnimation != null;
+            public bool HasAnimation => ShowAnimation != null || HideAnimation != null;
 
             /// <summary>
             /// Gets the required hints.
@@ -834,30 +797,22 @@ namespace NKStudio.UITKNavigation.Animation
             /// </summary>
             internal UIAnimation GetAnimation(UIAnimationType type)
             {
-                if (type == UIAnimationType.Show)
-                    return ShowAnimation ?? Preset?.GetShow();
-                return HideAnimation ?? Preset?.GetHide();
-            }
-
-
-            public Layer WithPreset(UIAnimationPreset preset)
-            {
-                return new Layer(Element, preset, ShowAnimation, HideAnimation, AppliedHints);
+                return type == UIAnimationType.Show ? ShowAnimation : HideAnimation;
             }
 
             internal Layer WithShowAnimation(UIAnimation showAnimation)
             {
-                return new Layer(Element, Preset, showAnimation, HideAnimation, AppliedHints);
+                return new Layer(Element, showAnimation, HideAnimation, AppliedHints);
             }
 
             internal Layer WithHideAnimation(UIAnimation hideAnimation)
             {
-                return new Layer(Element, Preset, ShowAnimation, hideAnimation, AppliedHints);
+                return new Layer(Element, ShowAnimation, hideAnimation, AppliedHints);
             }
 
             public Layer WithAppliedHints(UsageHints appliedHints)
             {
-                return new Layer(Element, Preset, ShowAnimation, HideAnimation, appliedHints);
+                return new Layer(Element, ShowAnimation, HideAnimation, appliedHints);
             }
         }
     }

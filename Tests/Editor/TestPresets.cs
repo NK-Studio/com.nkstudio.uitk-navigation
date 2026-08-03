@@ -12,13 +12,11 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         /// <summary>
         /// Creates member.
         /// </summary>
-        public static UIAnimationPreset Create(float duration, float moveStartDelay)
+        public static (UIAnimation Show, UIAnimation Hide) Create(float duration, float moveStartDelay)
         {
-            UIAnimationPreset preset = ScriptableObject.CreateInstance<UIAnimationPreset>();
-            preset.SetAnimations(
+            return (
                 BuildAnimation(UIAnimationType.Show, duration, moveStartDelay),
                 BuildAnimation(UIAnimationType.Hide, duration, moveStartDelay));
-            return preset;
         }
 
         /// <summary>

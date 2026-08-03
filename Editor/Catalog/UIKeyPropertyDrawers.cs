@@ -469,10 +469,38 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             SerializedProperty toggleValue = property.FindPropertyRelative("toggleValue");
 
             var root = new VisualElement();
+            root.AddToClassList("uinavigation-phase");
+            root.AddToClassList("uinavigation-portal-phase");
+            UINavigationListDrawerUtility.AttachGraphInspectorStyles(root);
+
+            var titleRow = new VisualElement();
+            titleRow.AddToClassList("uinavigation-phase__header");
+
+            var iconBox = new VisualElement();
+            iconBox.AddToClassList("uinavigation-phase__icon-box");
+
+            var icon = new VisualElement();
+            icon.AddToClassList("uinavigation-phase__icon");
+            icon.tooltip = "Portal Condition";
+            icon.style.backgroundImage = new StyleBackground(
+                AssetDatabase.LoadAssetAtPath<VectorImage>(
+                    "Packages/com.nkstudio.uitk-navigation/Editor/Assets/NodeOutputIcon.svg"));
+            icon.style.height = 16;
+            iconBox.Add(icon);
+            titleRow.Add(iconBox);
+
+            var title = new Label("Portal Condition");
+            title.AddToClassList("uinavigation-phase__title");
+            titleRow.Add(title);
+            root.Add(titleRow);
+
+            var body = new VisualElement();
+            body.AddToClassList("uinavigation-phase__body");
+
             var kindField = new EnumField(
                 (UINavigationPortalConditionKind)kind.enumValueIndex);
             kindField.label = "Type";
-            root.Add(kindField);
+            body.Add(kindField);
 
             UIKeyPickerField keyField = UIKeyPropertyDrawer.CreateField(
                 "Key",
@@ -481,13 +509,13 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 key.FindPropertyRelative("key"),
                 () => GetKind(
                     (UINavigationPortalConditionKind)kind.enumValueIndex));
-            root.Add(keyField);
+            body.Add(keyField);
 
             var toggleField = new Toggle("Expected Value")
             {
                 value = toggleValue.boolValue
             };
-            root.Add(toggleField);
+            body.Add(toggleField);
 
             void Refresh()
             {
@@ -512,6 +540,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 property.serializedObject.ApplyModifiedProperties();
             });
             Refresh();
+
+            root.Add(body);
             return root;
         }
 

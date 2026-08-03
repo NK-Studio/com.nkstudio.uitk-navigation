@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using NKStudio.UITKNavigation.Navigation;
 using UnityEditor;
 using UnityEngine;
@@ -36,7 +38,10 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             }
 
             UINavigationAsset asset = _navigationAsset.objectReferenceValue as UINavigationAsset;
-            using (new EditorGUI.DisabledScope(asset == null || _navigationAsset.hasMultipleDifferentValues))
+            using (new EditorGUI.DisabledScope(
+                       asset == null ||
+                       _navigationAsset.hasMultipleDifferentValues ||
+                       !UINavigationAssetEditor.HasAuthoringGraph(asset)))
             {
                 if (GUILayout.Button("Open Graph"))
                     AssetDatabase.OpenAsset(asset);
@@ -99,8 +104,18 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             EditorGUILayout.LabelField("Start Node", asset.GetStartNode()?.DisplayName ?? "None");
             EditorGUILayout.Space(6f);
 
-            if (GUILayout.Button("Open Graph Editor", GUILayout.Height(28f)))
-                AssetDatabase.OpenAsset(asset);
+            bool hasAuthoringGraph = HasAuthoringGraph(asset);
+            if (hasAuthoringGraph)
+            {
+                if (GUILayout.Button("Open Graph Editor", GUILayout.Height(28f)))
+                    AssetDatabase.OpenAsset(asset);
+            }
+            else
+            {
+                EditorGUILayout.HelpBox(
+                    "이 파일은 편집 원본이 없는 런타임 .asset입니다. 편집 가능한 그래프는 .uinavgraph로 생성하세요.",
+                    MessageType.Info);
+            }
 
             EditorGUILayout.Space(6f);
             var errors = UINavigationGraphValidator.Validate(asset);
@@ -112,6 +127,15 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
             foreach (string error in errors)
                 EditorGUILayout.HelpBox(error, MessageType.Warning);
+        }
+
+        internal static bool HasAuthoringGraph(UINavigationAsset asset)
+        {
+            string path = AssetDatabase.GetAssetPath(asset);
+            return string.Equals(
+                Path.GetExtension(path),
+                "." + UINavigationAuthoringGraph.Extension,
+                StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -629,7 +629,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 .Build();
         }
 
-        private static string FormatKey(UIKey key, string fallback)
+        internal static string FormatKey(UIKey key, string fallback)
         {
             return key.IsValid ? key.ToString() : fallback;
         }
@@ -680,11 +680,16 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         internal const string HistoryOption = "history";
         internal const string NextPort = "next";
 
+        internal string InitialDisplayName { get; set; }
+        internal UINavigationPortalCondition InitialCondition { get; set; }
+        internal UINavigationTransitionKind InitialHistory { get; set; } = UINavigationTransitionKind.Push;
+
         protected override void OnDefineOptions(IOptionDefinitionContext context)
         {
             context.AddOption<string>(DisplayNameOption)
                 .WithDisplayName("Display Name")
-                .WithDefaultValue("Portal")
+                .WithDefaultValue(string.IsNullOrEmpty(InitialDisplayName) ? "Portal" : InitialDisplayName)
+                .ShowInInspectorOnly()
                 .Delayed()
                 .Build();
             context.AddOption<string>(DescriptionOption)
@@ -695,11 +700,13 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 .Build();
             context.AddOption<UINavigationPortalCondition>(ConditionOption)
                 .WithDisplayName("Condition")
-                .WithDefaultValue(new UINavigationPortalCondition())
+                .WithDefaultValue(InitialCondition ?? new UINavigationPortalCondition())
+                .ShowInInspectorOnly()
                 .Build();
             context.AddOption<UINavigationTransitionKind>(HistoryOption)
                 .WithDisplayName("History")
-                .WithDefaultValue(UINavigationTransitionKind.Push)
+                .WithDefaultValue(InitialHistory)
+                .ShowInInspectorOnly()
                 .Build();
         }
 
@@ -711,8 +718,17 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 : displayName.Trim();
             DefaultColor = UINavigationNodeColors.Portal;
 
+            UINavigationPortalCondition condition = GetCondition();
+            string keyName = condition.Key.IsValid ? condition.Key.ToString() : "Unassigned";
+            string portDisplayName = condition.Kind switch
+            {
+                UINavigationPortalConditionKind.Signal => $"Signal · {keyName}",
+                UINavigationPortalConditionKind.Toggle => $"Toggle · {keyName} · {(condition.ToggleValue ? "On" : "Off")}",
+                _ => $"UI Button · {keyName}"
+            };
+
             context.AddOutputPort(NextPort)
-                .WithDisplayName("Force Transition")
+                .WithDisplayName(portDisplayName)
                 .WithTooltip("조건이 발생하면 현재 UI와 무관하게 이 연결로 강제 전이합니다.")
                 .WithConnectorUI(PortConnectorUI.Arrowhead)
                 .Build();

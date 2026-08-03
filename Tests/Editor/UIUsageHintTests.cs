@@ -107,24 +107,19 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         }
 
         [Test]
-        public void Preset_AppliesAndRevertsHints()
+        public void Animations_AppliesAndRevertsHints()
         {
-            UIAnimationPreset preset = TestPresets.Create(0.2f, 0f);
+            var (showAnim, hideAnim) = TestPresets.Create(0.2f, 0f);
 
-            try
-            {
-                _visibility.Preset = preset;
-                Assert.AreEqual(
-                    UsageHints.DynamicTransform | UsageHints.DynamicColor,
-                    _element.usageHints);
+            _visibility.ShowAnimation = showAnim;
+            _visibility.HideAnimation = hideAnim;
+            Assert.AreEqual(
+                UsageHints.DynamicTransform | UsageHints.DynamicColor,
+                _element.usageHints);
 
-                _visibility.Preset = null;
-                Assert.AreEqual(UsageHints.None, _element.usageHints);
-            }
-            finally
-            {
-                Object.DestroyImmediate(preset);
-            }
+            _visibility.ShowAnimation = null;
+            _visibility.HideAnimation = null;
+            Assert.AreEqual(UsageHints.None, _element.usageHints);
         }
 
         [Test]

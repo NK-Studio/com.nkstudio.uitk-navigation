@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1] - 2026-08-04
+
+### Changed
+
+- 패키지 버전을 `0.3.1`로 올렸습니다.
+
+### Removed
+
+- **Breaking.** 구형 에셋 기반 식별자 및 애니메이션 프리셋 잔재인 `UIViewId` 및 `UIAnimationPreset` ScriptableObject 타입과 에셋 생성 메뉴(`Create > UITK Navigation > UI View Id`, `Create > UITK Navigation > UI Animation Preset`)를 전면 제거했습니다.
+- `UIViewVisibility` 내부의 `Preset` 프로퍼티 및 `UIAnimationPreset` 의존성을 제거하고 `ShowAnimation` / `HideAnimation` (`UIAnimation`) 직접 소유 및 런타임 제어 구조로 정돈했습니다.
+
 ## [0.3.0] - 2026-08-03
 
 ### Added

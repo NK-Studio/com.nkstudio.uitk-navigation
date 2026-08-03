@@ -17,7 +17,6 @@ namespace NKStudio.UITKNavigation.Editor.Tests
 
         private TestNavigationGraphBuilder _builder;
         private ManualMotionDispatcher _dispatcher;
-        private UIAnimationPreset _preset;
         private VisualElement _element;
         private UIViewVisibility _visibility;
         private UIKey _viewKey;
@@ -27,11 +26,12 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         {
             _builder = new TestNavigationGraphBuilder();
             _dispatcher = new ManualMotionDispatcher();
-            _preset = TestPresets.Create(Duration, 0f);
+            var (showAnim, hideAnim) = TestPresets.Create(Duration, 0f);
             _element = new VisualElement();
             _visibility = new UIViewVisibility(_element)
             {
-                Preset = _preset,
+                ShowAnimation = showAnim,
+                HideAnimation = hideAnim,
                 Scheduler = _dispatcher.Scheduler
             };
             _visibility.InstantHide();
@@ -47,9 +47,6 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             _visibility?.Dispose();
             _dispatcher.Reset();
             _builder.Dispose();
-
-            if (_preset != null)
-                Object.DestroyImmediate(_preset);
         }
 
         [Test]
