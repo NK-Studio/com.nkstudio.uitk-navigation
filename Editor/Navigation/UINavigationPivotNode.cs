@@ -38,10 +38,10 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         "UI Navigation/Utils",
         "",
         "Pivot",
-        "Packages/com.nkstudio.uitk-navigation/Editor/Styles/UINavigationPivotPrototypeNode.uss")]
+        "Packages/com.nkstudio.uitk-navigation/Editor/Styles/UINavigationPivotNode.uss")]
     [UseWithGraph(typeof(UINavigationAuthoringGraph))]
     [Serializable]
-    internal sealed class UINavigationPivotPrototypeNode : Node
+    internal sealed class UINavigationPivotNode : Node
     {
         internal const string RotationOption = "rotation";
         internal const string EnterPort = "enter";

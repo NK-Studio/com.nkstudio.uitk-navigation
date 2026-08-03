@@ -244,7 +244,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 if (source is not UINavigationUINodeBase &&
                     source is not UINavigationPortalNode &&
                     source is not UINavigationStartNode &&
-                    source is not UINavigationPivotPrototypeNode &&
+                    source is not UINavigationPivotNode &&
                     !IsContinuingActionNode(source))
                 {
                     logger.LogError(
@@ -333,7 +333,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 ? ResolveForward(targets[0])
                 : null;
             if (target is not UINavigationUINodeBase &&
-                target is not UINavigationPivotPrototypeNode)
+                target is not UINavigationPivotNode)
             {
                 logger.LogError("Start는 정확히 하나의 Screen Enter에 연결해야 합니다.", start);
             }
@@ -351,7 +351,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 : null;
             if (source is not UINavigationUINodeBase &&
                 source is not UINavigationPortalNode &&
-                source is not UINavigationPivotPrototypeNode &&
+                source is not UINavigationPivotNode &&
                 !IsContinuingActionNode(source))
             {
                 logger.LogError(
@@ -493,7 +493,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     ? ResolveForward(targets[0])
                     : null;
                 if (target is not UINavigationUINodeBase &&
-                    target is not UINavigationPivotPrototypeNode)
+                    target is not UINavigationPivotNode)
                 {
                     AddError(errors, "Start는 정확히 하나의 Screen Enter에 연결해야 합니다.");
                 }
@@ -520,7 +520,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     : null;
                 if (source is not UINavigationUINodeBase &&
                     source is not UINavigationPortalNode &&
-                    source is not UINavigationPivotPrototypeNode &&
+                    source is not UINavigationPivotNode &&
                     !IsContinuingActionNode(source))
                 {
                     AddError(errors, "Action의 Enter 연결이 올바르지 않습니다.");
@@ -626,7 +626,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     return false;
                 }
 
-                if (next is UINavigationPivotPrototypeNode pivot)
+                if (next is UINavigationPivotNode pivot)
                 {
                     output = pivot.GetExitPort();
                     continue;
@@ -765,7 +765,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         {
             return node is UINavigationUINodeBase ||
                    node is UINavigationActionNodeBase ||
-                   node is UINavigationPivotPrototypeNode;
+                   node is UINavigationPivotNode;
         }
 
         /// <summary>
@@ -775,7 +775,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         {
             INode node = INodeExtensions.GetNode(targetPort);
             var visited = new HashSet<INode>();
-            while (node is UINavigationPivotPrototypeNode pivot)
+            while (node is UINavigationPivotNode pivot)
             {
                 if (!visited.Add(pivot))
                     return pivot;
@@ -797,7 +797,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         {
             INode node = INodeExtensions.GetNode(sourcePort);
             var visited = new HashSet<INode>();
-            while (node is UINavigationPivotPrototypeNode pivot)
+            while (node is UINavigationPivotNode pivot)
             {
                 if (!visited.Add(pivot))
                     return pivot;

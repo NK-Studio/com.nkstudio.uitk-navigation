@@ -132,8 +132,8 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             if (field?.value is not UINavigationPivotRotation rotation)
                 return;
 
-            bool reversed = UINavigationPivotPrototypeNode.IsReversed(rotation);
-            bool vertical = UINavigationPivotPrototypeNode.IsVertical(rotation);
+            bool reversed = UINavigationPivotNode.IsReversed(rotation);
+            bool vertical = UINavigationPivotNode.IsVertical(rotation);
 
             if (vertical)
             {
