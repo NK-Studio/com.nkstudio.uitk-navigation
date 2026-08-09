@@ -37,17 +37,17 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
             var start = new UINavigationStartNode { Position = new Vector2(40f, 220f) };
             var mainToShop = new UINavigationOutputDefinition(
-                UINavigationTriggerKind.UIButton,
+                UINavigationTriggerKind.Signal,
                 new UIKey("Demo", "Shop"),
                 0f,
                 UINavigationTransitionKind.Push);
             var mainToPopup = new UINavigationOutputDefinition(
-                UINavigationTriggerKind.UIButton,
+                UINavigationTriggerKind.Signal,
                 new UIKey("Demo", "Popup"),
                 0f,
                 UINavigationTransitionKind.Push);
             var shopToPopup = new UINavigationOutputDefinition(
-                UINavigationTriggerKind.UIButton,
+                UINavigationTriggerKind.Signal,
                 new UIKey("Demo", "Popup"),
                 0f,
                 UINavigationTransitionKind.Push);
@@ -81,7 +81,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 UIKeyCatalogKind.View);
             UIKeyCatalog.instance.AddRange(
                 new[] { shop, popup },
-                UIKeyCatalogKind.Button);
+                UIKeyCatalogKind.Signal);
             AssetDatabase.ImportAsset(
                 SampleAssetPath,
                 ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);

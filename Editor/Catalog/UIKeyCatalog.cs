@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using NKStudio.UITKNavigation.Identity;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Serialization;
 using ZLinq;
 
 namespace NKStudio.UITKNavigation.Editor.Catalog
@@ -10,7 +11,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
     [FilePath(
         "ProjectSettings/UITKNavigationKeyCatalog.asset",
         FilePathAttribute.Location.ProjectFolder)]
-    internal sealed class UIKeyCatalog : ScriptableSingleton<UIKeyCatalog>
+    internal sealed class UIKeyCatalog : ScriptableSingleton<UIKeyCatalog>, ISerializationCallbackReceiver
     {
         [Serializable]
         internal sealed class CategoryEntry
@@ -101,16 +102,28 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             }
         }
 
-        private const int CurrentSchemaVersion = 2;
+        private const int CurrentSchemaVersion = 3;
 
         [SerializeField] private List<CategoryEntry> categories = new();
         [SerializeField] private List<CategoryEntry> viewCategories = new();
-        [SerializeField] private List<CategoryEntry> buttonCategories = new();
+        [FormerlySerializedAs("buttonCategories")]
+        [SerializeField] private List<CategoryEntry> toggleCategories = new();
         [SerializeField] private List<CategoryEntry> signalCategories = new();
 #pragma warning disable CS0414
         [SerializeField] private bool splitCatalogMigrated;
 #pragma warning restore CS0414
         [SerializeField] private int catalogSchemaVersion;
+
+        [NonSerialized] private bool _isValid;
+        [NonSerialized] private Dictionary<string, CategoryEntry> _viewCategoryLookup;
+        [NonSerialized] private Dictionary<string, CategoryEntry> _toggleCategoryLookup;
+        [NonSerialized] private Dictionary<string, CategoryEntry> _signalCategoryLookup;
+        [NonSerialized] private HashSet<UIKey> _viewKeyLookup;
+        [NonSerialized] private HashSet<UIKey> _toggleKeyLookup;
+        [NonSerialized] private HashSet<UIKey> _signalKeyLookup;
+        [NonSerialized] private List<UIKey> _viewKeys;
+        [NonSerialized] private List<UIKey> _toggleKeys;
+        [NonSerialized] private List<UIKey> _signalKeys;
 
         internal static event Action Changed;
 
@@ -129,9 +142,11 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             if (catalogSchemaVersion >= CurrentSchemaVersion)
                 return;
 
+            int sourceSchemaVersion = catalogSchemaVersion;
+
             var existingKinds = new Dictionary<UIKey, HashSet<UIKeyCatalogKind>>();
             CollectExisting(viewCategories, UIKeyCatalogKind.View);
-            CollectExisting(buttonCategories, UIKeyCatalogKind.Button);
+            CollectExisting(toggleCategories, UIKeyCatalogKind.Toggle);
             CollectExisting(signalCategories, UIKeyCatalogKind.Signal);
 
             var legacyKeys = new HashSet<UIKey>(
@@ -148,7 +163,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             var separated = new Dictionary<UIKeyCatalogKind, HashSet<UIKey>>
             {
                 [UIKeyCatalogKind.View] = new HashSet<UIKey>(),
-                [UIKeyCatalogKind.Button] = new HashSet<UIKey>(),
+                [UIKeyCatalogKind.Toggle] = new HashSet<UIKey>(),
                 [UIKeyCatalogKind.Signal] = new HashSet<UIKey>()
             };
 
@@ -163,10 +178,13 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 if (usedKinds.ContainsKey(value))
                     continue;
 
-                UIKeyCatalogKind target = kinds.Count == 1
-                    ? kinds.AsValueEnumerable().First()
-                    : UIKeyCatalogKind.Signal;
-                separated[target].Add(value);
+                foreach (UIKeyCatalogKind kind in kinds)
+                    separated[kind].Add(value);
+
+                // Schema 2 stored NavButton and NavToggle keys together. When no
+                // usage can disambiguate a legacy key, keep it in both destinations.
+                if (sourceSchemaVersion == 2 && kinds.Contains(UIKeyCatalogKind.Toggle))
+                    separated[UIKeyCatalogKind.Signal].Add(value);
             }
 
             foreach (UIKey value in legacyKeys)
@@ -177,7 +195,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
             Undo.RecordObject(this, "Separate UI Navigation Key Catalog");
             viewCategories = BuildCategories(separated[UIKeyCatalogKind.View]);
-            buttonCategories = BuildCategories(separated[UIKeyCatalogKind.Button]);
+            toggleCategories = BuildCategories(separated[UIKeyCatalogKind.Toggle]);
             signalCategories = BuildCategories(separated[UIKeyCatalogKind.Signal]);
             splitCatalogMigrated = true;
             catalogSchemaVersion = CurrentSchemaVersion;
@@ -220,8 +238,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         internal IEnumerable<UIKey> GetKeys(UIKeyCatalogKind kind)
         {
             EnsureValid();
-            return GetMutableCategories(kind).AsValueEnumerable().SelectMany(category =>
-                category.Keys.AsValueEnumerable().Select(key => new UIKey(category.Name, key))).ToArray();
+            return GetCachedKeys(kind);
         }
 
         internal bool Contains(
@@ -231,8 +248,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             if (!value.IsValid)
                 return false;
 
-            CategoryEntry category = FindCategory(value.Category, kind);
-            return category != null && category.Contains(value.Key);
+            EnsureValid();
+            return GetKeyLookup(kind).Contains(new UIKey(value.Category, value.Key));
         }
 
         internal bool AddCategory(
@@ -285,15 +302,18 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 return 0;
 
             int count = 0;
+            Dictionary<string, CategoryEntry> categoryLookup = GetCategoryLookup(kind);
             Undo.RecordObject(this, "Import UI Navigation Keys");
             foreach (UIKey value in values.AsValueEnumerable().Where(item => item.IsValid).Distinct())
             {
-                CategoryEntry category = FindCategory(value.Category, kind);
+                string categoryName = Normalize(value.Category);
+                categoryLookup.TryGetValue(categoryName, out CategoryEntry category);
                 List<CategoryEntry> target = GetMutableCategories(kind);
                 if (category == null)
                 {
-                    category = new CategoryEntry(value.Category);
+                    category = new CategoryEntry(categoryName);
                     target.Add(category);
+                    categoryLookup.Add(categoryName, category);
                 }
 
                 if (category.Add(value.Key))
@@ -387,8 +407,9 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         {
             EnsureValid();
             string normalized = Normalize(category);
-            return GetMutableCategories(kind).AsValueEnumerable().FirstOrDefault(item =>
-                string.Equals(item.Name, normalized, StringComparison.Ordinal));
+            return GetCategoryLookup(kind).TryGetValue(normalized, out CategoryEntry result)
+                ? result
+                : null;
         }
 
         internal void SaveNow()
@@ -399,6 +420,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
         private void SaveAndNotify()
         {
+            _isValid = false;
             EnsureValid();
             Save(true);
             Changed?.Invoke();
@@ -406,13 +428,41 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
         private void EnsureValid()
         {
+            if (_isValid)
+                return;
+
             categories ??= new List<CategoryEntry>();
             viewCategories ??= new List<CategoryEntry>();
-            buttonCategories ??= new List<CategoryEntry>();
+            toggleCategories ??= new List<CategoryEntry>();
             signalCategories ??= new List<CategoryEntry>();
             viewCategories = NormalizeCategories(viewCategories);
-            buttonCategories = NormalizeCategories(buttonCategories);
+            toggleCategories = NormalizeCategories(toggleCategories);
             signalCategories = NormalizeCategories(signalCategories);
+            BuildLookups(
+                viewCategories,
+                out _viewCategoryLookup,
+                out _viewKeyLookup,
+                out _viewKeys);
+            BuildLookups(
+                toggleCategories,
+                out _toggleCategoryLookup,
+                out _toggleKeyLookup,
+                out _toggleKeys);
+            BuildLookups(
+                signalCategories,
+                out _signalCategoryLookup,
+                out _signalKeyLookup,
+                out _signalKeys);
+            _isValid = true;
+        }
+
+        void ISerializationCallbackReceiver.OnBeforeSerialize()
+        {
+        }
+
+        void ISerializationCallbackReceiver.OnAfterDeserialize()
+        {
+            _isValid = false;
         }
 
         private static List<CategoryEntry> BuildCategories(IEnumerable<UIKey> values)
@@ -438,9 +488,63 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return kind switch
             {
                 UIKeyCatalogKind.View => viewCategories,
-                UIKeyCatalogKind.Button => buttonCategories,
+                UIKeyCatalogKind.Toggle => toggleCategories,
                 _ => signalCategories
             };
+        }
+
+        private Dictionary<string, CategoryEntry> GetCategoryLookup(UIKeyCatalogKind kind)
+        {
+            return kind switch
+            {
+                UIKeyCatalogKind.View => _viewCategoryLookup,
+                UIKeyCatalogKind.Toggle => _toggleCategoryLookup,
+                _ => _signalCategoryLookup
+            };
+        }
+
+        private HashSet<UIKey> GetKeyLookup(UIKeyCatalogKind kind)
+        {
+            return kind switch
+            {
+                UIKeyCatalogKind.View => _viewKeyLookup,
+                UIKeyCatalogKind.Toggle => _toggleKeyLookup,
+                _ => _signalKeyLookup
+            };
+        }
+
+        private IReadOnlyList<UIKey> GetCachedKeys(UIKeyCatalogKind kind)
+        {
+            return kind switch
+            {
+                UIKeyCatalogKind.View => _viewKeys,
+                UIKeyCatalogKind.Toggle => _toggleKeys,
+                _ => _signalKeys
+            };
+        }
+
+        private static void BuildLookups(
+            IReadOnlyList<CategoryEntry> source,
+            out Dictionary<string, CategoryEntry> categoryLookup,
+            out HashSet<UIKey> keyLookup,
+            out List<UIKey> keys)
+        {
+            categoryLookup = new Dictionary<string, CategoryEntry>(source.Count, StringComparer.Ordinal);
+            keyLookup = new HashSet<UIKey>();
+            keys = new List<UIKey>();
+
+            for (int categoryIndex = 0; categoryIndex < source.Count; categoryIndex++)
+            {
+                CategoryEntry category = source[categoryIndex];
+                categoryLookup.Add(category.Name, category);
+                IReadOnlyList<string> categoryKeys = category.Keys;
+                for (int keyIndex = 0; keyIndex < categoryKeys.Count; keyIndex++)
+                {
+                    var value = new UIKey(category.Name, categoryKeys[keyIndex]);
+                    keyLookup.Add(value);
+                    keys.Add(value);
+                }
+            }
         }
 
         private static List<CategoryEntry> NormalizeCategories(List<CategoryEntry> source)

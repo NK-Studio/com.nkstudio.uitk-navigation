@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using NKStudio.UITKNavigation.Editor.Catalog;
@@ -52,6 +54,149 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         }
 
         [Test]
+        public void RepeatedLookups_DoNotRebuildNormalizedCollections()
+        {
+            var catalog = (UIKeyCatalog)System.Runtime.Serialization.FormatterServices
+                .GetUninitializedObject(typeof(UIKeyCatalog));
+            var first = new UIKeyCatalog.CategoryEntry(" Demo ");
+            first.Add(" Beta ");
+            first.Add("Alpha");
+            var duplicate = new UIKeyCatalog.CategoryEntry("Demo");
+            duplicate.Add("Ignored");
+
+            typeof(UIKeyCatalog)
+                .GetField(
+                    "viewCategories",
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic)
+                .SetValue(catalog, new List<UIKeyCatalog.CategoryEntry> { first, duplicate });
+
+            IReadOnlyList<UIKeyCatalog.CategoryEntry> categories =
+                catalog.GetCategories(UIKeyCatalogKind.View);
+            IEnumerable<UIKey> keys = catalog.GetKeys(UIKeyCatalogKind.View);
+
+            Assert.AreEqual(1, categories.Count);
+            CollectionAssert.AreEqual(new[] { "Alpha", "Beta" }, categories[0].Keys);
+            Assert.IsTrue(catalog.Contains(new UIKey("Demo", "Alpha"), UIKeyCatalogKind.View));
+            Assert.IsFalse(catalog.Contains(new UIKey("Demo", "Missing"), UIKeyCatalogKind.View));
+            Assert.AreSame(categories, catalog.GetCategories(UIKeyCatalogKind.View));
+            Assert.AreSame(keys, catalog.GetKeys(UIKeyCatalogKind.View));
+        }
+
+        [Test]
+        public void UIKeyPicker_GraphInspectorLayout_MatchesConstantFieldHierarchy()
+        {
+            var picker = new UIKeyPickerField(
+                "Database Signal",
+                () => new UIKey("Default", "Home"),
+                _ => { },
+                () => UIKeyCatalogKind.Signal,
+                graphInspectorLayout: true);
+
+            Assert.IsTrue(picker.ClassListContains("ge-model-property-field"));
+            Assert.IsTrue(picker.ClassListContains("unity-property-field"));
+            Assert.IsFalse(picker.ClassListContains("unity-base-field"));
+            Assert.AreEqual(1, picker.childCount);
+
+            VisualElement field = picker[0];
+            Assert.AreEqual("field", field.name);
+            Assert.IsTrue(field.ClassListContains("unity-base-field"));
+            Assert.AreEqual(2, field.childCount);
+
+            Label label = field[0] as Label;
+            Assert.IsNotNull(label);
+            Assert.IsTrue(label.ClassListContains("unity-base-field__label"));
+            Assert.IsTrue(label.ClassListContains("ge-model-property-field__label"));
+            Assert.IsTrue(label.ClassListContains("unity-property-field__label"));
+
+            VisualElement input = field[1];
+            Assert.IsTrue(input.ClassListContains("unity-base-field__input"));
+            Assert.IsTrue(input.ClassListContains("ge-model-property-field__input"));
+            Assert.IsTrue(input.ClassListContains("unity-property-field__input"));
+            Assert.AreEqual(StyleKeyword.Null, input.style.marginLeft.keyword);
+            Assert.AreEqual(StyleKeyword.Null, input.style.marginRight.keyword);
+
+            List<Button> buttons = input.Query<Button>().ToList();
+            Assert.IsNotEmpty(buttons);
+            Assert.IsTrue(buttons.TrueForAll(button =>
+                button.ClassListContains(Button.ussClassName)));
+        }
+
+        [UnityTest]
+        public IEnumerator UIKeyPicker_GraphInspectorLayout_FitsStandardFieldBounds()
+        {
+            var window = ScriptableObject.CreateInstance<EditorWindow>();
+            try
+            {
+                window.position = new Rect(100f, 100f, 840f, 240f);
+                VisualElement host = window.rootVisualElement;
+                host.style.paddingLeft = 24f;
+                host.style.paddingRight = 24f;
+                host.AddToClassList("unity-inspector-element");
+                host.AddToClassList("unity-inspector-main-container");
+
+                StyleSheet graphFieldStyle = EditorGUIUtility.Load(
+                    "StyleSheets/GraphToolkit/Field.uss") as StyleSheet;
+                Assert.IsNotNull(graphFieldStyle);
+                host.styleSheets.Add(graphFieldStyle);
+                StyleSheet customizableFieldStyle = EditorGUIUtility.Load(
+                    "StyleSheets/GraphToolkit/CustomizableModelPropertyField.uss") as
+                    StyleSheet;
+                Assert.IsNotNull(customizableFieldStyle);
+                host.styleSheets.Add(customizableFieldStyle);
+
+                var referenceRoot = new VisualElement();
+                referenceRoot.AddToClassList("ge-model-property-field");
+                referenceRoot.AddToClassList("unity-property-field");
+                var referenceField = new TextField("Display Name");
+                referenceField.AddToClassList(
+                    BaseField<string>.alignedFieldUssClassName);
+                referenceField.labelElement.AddToClassList(
+                    "ge-model-property-field__label");
+                referenceField.labelElement.AddToClassList(
+                    "unity-property-field__label");
+                VisualElement referenceInput = referenceField.Q<VisualElement>(
+                    className: "unity-base-field__input");
+                referenceInput.AddToClassList("ge-model-property-field__input");
+                referenceInput.AddToClassList("unity-property-field__input");
+                referenceRoot.Add(referenceField);
+                host.Add(referenceRoot);
+
+                var picker = new UIKeyPickerField(
+                    "Database Signal",
+                    () => new UIKey("LayoutProbe", "Missing"),
+                    _ => { },
+                    () => UIKeyCatalogKind.Signal,
+                    graphInspectorLayout: true);
+                host.Add(picker);
+
+                window.Show();
+                yield return null;
+                yield return null;
+
+                VisualElement pickerInput = picker.Q<VisualElement>(
+                    className: "ge-model-property-field__input");
+                Assert.IsNotNull(pickerInput);
+                Assert.That(
+                    pickerInput.worldBound.xMin,
+                    Is.EqualTo(referenceInput.worldBound.xMin).Within(0.5f));
+                Assert.That(
+                    pickerInput.worldBound.xMax,
+                    Is.EqualTo(referenceInput.worldBound.xMax).Within(0.5f));
+
+                List<Button> buttons = pickerInput.Query<Button>().ToList();
+                Assert.IsNotEmpty(buttons);
+                Assert.IsTrue(buttons.TrueForAll(button =>
+                    button.worldBound.xMin >= pickerInput.worldBound.xMin - 0.5f &&
+                    button.worldBound.xMax <= pickerInput.worldBound.xMax + 0.5f));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+
+        [Test]
         public void ExistingStringUxmlAttributes_CreateCustomElements()
         {
             WriteUxml("CatalogTest", "Main");
@@ -85,6 +230,33 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         }
 
         [Test]
+        public void ProjectScan_ClassifiesNavButtonAsSignalAndNavToggleAsToggle()
+        {
+            File.WriteAllText(
+                TempUxml,
+                @"<ui:UXML xmlns:ui=""UnityEngine.UIElements"" xmlns:nav=""NKStudio.UITKNavigation.Elements"">
+    <nav:NavButton name=""test-button"" signal-category=""Demo"" signal-key=""Open"" />
+    <nav:NavToggle name=""test-toggle"" toggle-category=""Demo"" toggle-key=""Music"" />
+</ui:UXML>");
+            AssetDatabase.ImportAsset(
+                TempUxml,
+                ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+
+            UIKeyUsage[] usages = UIKeyProjectService.ScanProject(false)
+                .AsValueEnumerable()
+                .Where(usage => usage.AssetPath == TempUxml)
+                .ToArray();
+
+            Assert.AreEqual(2, usages.Length);
+            Assert.IsTrue(usages.AsValueEnumerable().Any(usage =>
+                usage.Value == new UIKey("Demo", "Open") &&
+                usage.CatalogKind == UIKeyCatalogKind.Signal));
+            Assert.IsTrue(usages.AsValueEnumerable().Any(usage =>
+                usage.Value == new UIKey("Demo", "Music") &&
+                usage.CatalogKind == UIKeyCatalogKind.Toggle));
+        }
+
+        [Test]
         public void RenameKey_UpdatesOnlySelectedCatalogKind()
         {
             WriteUxml("CatalogTest", "Main");
@@ -106,7 +278,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
                 UIKeyProjectService.RenameKey(
                     new UIKey("CatalogTest", "Main"),
                     "Settings",
-                    UIKeyCatalogKind.Button,
+                    UIKeyCatalogKind.Signal,
                     out error),
                 error);
             contents = File.ReadAllText(TempUxml);

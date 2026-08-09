@@ -21,6 +21,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         private readonly bool _overwrite;
         private readonly List<ScreenNode> _screens = new();
         private readonly List<PortalNode> _portals = new();
+        private readonly List<DestinationNode> _destinations = new();
         private readonly List<Connection> _connections = new();
         private StartNode _start;
 
@@ -67,7 +68,8 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 throw new ArgumentException("Screen node ID must not be empty.", nameof(id));
 
             string normalizedId = id.Trim();
-            if (_screens.Exists(item => string.Equals(item.Id, normalizedId, StringComparison.Ordinal)))
+            if (_screens.Exists(item => string.Equals(item.Id, normalizedId, StringComparison.Ordinal)) ||
+                _destinations.Exists(item => string.Equals(item.Id, normalizedId, StringComparison.Ordinal)))
                 throw new InvalidOperationException($"A Screen node with ID '{normalizedId}' already exists.");
 
             var node = new ScreenNode(
@@ -77,6 +79,15 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 position);
             _screens.Add(node);
             return node;
+        }
+
+        /// <summary>Adds a terminal Destination node.</summary>
+        public DestinationNode AddDestination(
+            string id,
+            Vector2 position,
+            string displayName = null)
+        {
+            return AddDestinationCore(id, position, displayName);
         }
 
         /// <summary>Adds a Portal node at the requested canvas position.</summary>
@@ -110,6 +121,18 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
         /// <summary>Connects a Screen output to another Screen's Enter port.</summary>
         public UINavigationGraphBuilder Connect(OutputPort source, ScreenNode target)
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source));
+
+            RequireOwned(source.Owner, nameof(source));
+            RequireOwned(target, nameof(target));
+            _connections.Add(new Connection(source.Owner, source.Definition, target));
+            return this;
+        }
+
+        /// <summary>Connects a Screen output to a Destination's Enter port.</summary>
+        public UINavigationGraphBuilder Connect(OutputPort source, DestinationNode target)
         {
             if (source == null)
                 throw new ArgumentNullException(nameof(source));
@@ -177,6 +200,18 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 nodeMap.Add(description, node);
             }
 
+            foreach (DestinationNode description in _destinations)
+            {
+                var node = new UINavigationSendSignalNode
+                {
+                    Position = description.Position,
+                    InitialNodeId = description.Id,
+                    InitialDisplayName = description.DisplayName
+                };
+                graph.AddNode(node);
+                nodeMap.Add(description, node);
+            }
+
             foreach (PortalNode description in _portals)
             {
                 var condition = new UINavigationPortalCondition();
@@ -225,6 +260,31 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             return asset;
         }
 
+        private DestinationNode AddDestinationCore(
+            string id,
+            Vector2 position,
+            string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentException("Destination node ID must not be empty.", nameof(id));
+
+            string normalizedId = id.Trim();
+            if (_screens.Exists(item => string.Equals(item.Id, normalizedId, StringComparison.Ordinal)) ||
+                _destinations.Exists(item => string.Equals(item.Id, normalizedId, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    "A navigation node with ID " + normalizedId + " already exists.");
+            }
+
+            var node = new DestinationNode(
+                this,
+                normalizedId,
+                position,
+                string.IsNullOrWhiteSpace(displayName) ? normalizedId : displayName.Trim());
+            _destinations.Add(node);
+            return node;
+        }
+
         private void ValidateDescription()
         {
             if (_start == null)
@@ -258,12 +318,23 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                         $"Portal '{portal.Label}' must be connected to exactly one Screen.");
                 }
             }
+
+            foreach (DestinationNode destination in _destinations)
+            {
+                int count = _connections.FindAll(
+                    item => item.Target == destination).Count;
+                if (count == 0)
+                {
+                    throw new InvalidOperationException(
+                        "Destination must be connected from at least one Screen: " + destination.Label);
+                }
+            }
         }
 
         private void RegisterCatalogKeys()
         {
             var views = new HashSet<UIKey>();
-            var buttons = new HashSet<UIKey>();
+            var toggles = new HashSet<UIKey>();
             var signals = new HashSet<UIKey>();
 
             foreach (ScreenNode screen in _screens)
@@ -275,14 +346,19 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
                 foreach (UINavigationOutputDefinition output in screen.Outputs)
                 {
+                    if (output.Trigger == UINavigationTriggerKind.Signal &&
+                        output.SignalAddressKind == UINavigationSignalAddressKind.Custom)
+                    {
+                        continue;
+                    }
+
                     if (!output.Key.IsValid)
                         continue;
 
                     switch (output.Trigger)
                     {
-                        case UINavigationTriggerKind.UIButton:
                         case UINavigationTriggerKind.Toggle:
-                            buttons.Add(output.Key);
+                            toggles.Add(output.Key);
                             break;
                         case UINavigationTriggerKind.Signal:
                             signals.Add(output.Key);
@@ -297,11 +373,11 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             foreach (PortalNode portal in _portals)
             {
                 if (portal.Key.IsValid)
-                    buttons.Add(portal.Key);
+                    signals.Add(portal.Key);
             }
 
             UIKeyCatalog.instance.AddRange(views, UIKeyCatalogKind.View);
-            UIKeyCatalog.instance.AddRange(buttons, UIKeyCatalogKind.Button);
+            UIKeyCatalog.instance.AddRange(toggles, UIKeyCatalogKind.Toggle);
             UIKeyCatalog.instance.AddRange(signals, UIKeyCatalogKind.Signal);
         }
 
@@ -352,6 +428,24 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 : base(builder, position, "Start")
             {
             }
+        }
+
+        /// <summary>Configurable Destination node handle.</summary>
+        public sealed class DestinationNode : NodeHandle
+        {
+            internal DestinationNode(
+                UINavigationGraphBuilder builder,
+                string id,
+                Vector2 position,
+                string displayName)
+                : base(builder, position, displayName)
+            {
+                Id = id;
+                DisplayName = displayName;
+            }
+
+            public string Id { get; }
+            public string DisplayName { get; }
         }
 
         /// <summary>Configurable Portal node handle.</summary>
@@ -423,19 +517,23 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             public ScreenNode ShowViewsOnExit(params UIKey[] views) => AddViews(ShowOnExit, views);
             public ScreenNode HideViewsOnExit(params UIKey[] views) => AddViews(HideOnExit, views);
 
-            public OutputPort AddButtonOutput(UIKey key) =>
-                AddOutput(new UINavigationOutputDefinition(
-                    UINavigationTriggerKind.UIButton,
-                    RequireKey(key),
-                    0f,
-                    UINavigationTransitionKind.Push));
-
             public OutputPort AddSignalOutput(UIKey key) =>
                 AddOutput(new UINavigationOutputDefinition(
                     UINavigationTriggerKind.Signal,
                     RequireKey(key),
                     0f,
                     UINavigationTransitionKind.Push));
+
+            public OutputPort AddSignalOutput(string customSignal)
+            {
+                if (string.IsNullOrWhiteSpace(customSignal))
+                    throw new ArgumentException(
+                        "Custom Signal must not be empty.",
+                        nameof(customSignal));
+
+                return AddOutput(
+                    UINavigationOutputDefinition.CreateCustomSignal(customSignal));
+            }
 
             public OutputPort AddDelayOutput(float seconds) =>
                 AddOutput(new UINavigationOutputDefinition(
@@ -517,7 +615,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
         private sealed class Connection
         {
-            internal Connection(NodeHandle source, UINavigationOutputDefinition output, ScreenNode target)
+            internal Connection(NodeHandle source, UINavigationOutputDefinition output, NodeHandle target)
             {
                 Source = source;
                 Output = output;
@@ -526,7 +624,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
             internal NodeHandle Source { get; }
             internal UINavigationOutputDefinition Output { get; }
-            internal ScreenNode Target { get; }
+            internal NodeHandle Target { get; }
         }
     }
 }

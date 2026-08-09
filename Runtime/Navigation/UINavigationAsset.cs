@@ -34,6 +34,10 @@ namespace NKStudio.UITKNavigation.Navigation
         /// Gets the portals.
         /// </summary>
         internal IReadOnlyList<UINavigationTransition> Portals => portals;
+        internal void Prepare()
+        {
+            EnsureIndex();
+        }
 
         internal bool TryGetPortal(
             UINavigationTriggerKind triggerKind,
@@ -55,6 +59,32 @@ namespace NKStudio.UITKNavigation.Navigation
 
                 transition = candidate;
                 return true;
+            }
+
+            transition = null;
+            return false;
+        }
+
+        internal bool TryGetPortal(
+            string customSignal,
+            out UINavigationTransition transition)
+        {
+            if (!string.IsNullOrEmpty(customSignal))
+            {
+                for (int i = 0; i < portals.Length; i++)
+                {
+                    UINavigationTransition candidate = portals[i];
+                    if (candidate != null &&
+                        candidate.TriggerKind == UINavigationTriggerKind.Signal &&
+                        string.Equals(
+                            candidate.CustomSignal,
+                            customSignal,
+                            StringComparison.Ordinal))
+                    {
+                        transition = candidate;
+                        return true;
+                    }
+                }
             }
 
             transition = null;

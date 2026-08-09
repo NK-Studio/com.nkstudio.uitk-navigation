@@ -5,17 +5,29 @@ using UnityEngine;
 
 namespace NKStudio.UITKNavigation.Navigation
 {
+    internal enum UINavigationSignalAddressKind
+    {
+        Database = 0,
+        Custom = 1
+    }
+
     internal enum UINavigationTriggerKind
     {
-        [InspectorName("UI Button")]
-        UIButton,
         [InspectorName("Time Delay")]
-        TimeDelay,
-        Toggle,
-        Signal,
+        TimeDelay = 1,
+        Toggle = 2,
+        Signal = 3,
         [InspectorName("UI View")]
-        UIView,
-        Random
+        UIView = 4,
+        Random = 5
+    }
+
+    internal static class UINavigationTriggerKindUtility
+    {
+        internal static UINavigationTriggerKind Normalize(UINavigationTriggerKind kind)
+        {
+            return (int)kind == 0 ? UINavigationTriggerKind.Signal : kind;
+        }
     }
 
     [Serializable]
@@ -23,6 +35,9 @@ namespace NKStudio.UITKNavigation.Navigation
     {
         [SerializeField]
         private UIKey signal;
+
+        [SerializeField]
+        private string customSignal;
 
         [SerializeField]
         private UINavigationTriggerKind triggerKind;
@@ -115,9 +130,37 @@ namespace NKStudio.UITKNavigation.Navigation
             UINavigationTransitionKind kind,
             UINavigationAction[] actions,
             string sourcePortName = null)
+            : this(
+                triggerKind,
+                signal,
+                string.Empty,
+                delaySeconds,
+                toggleCondition,
+                viewCondition,
+                weight,
+                targetNodeId,
+                kind,
+                actions,
+                sourcePortName)
         {
-            this.triggerKind = triggerKind;
+        }
+
+        public UINavigationTransition(
+            UINavigationTriggerKind triggerKind,
+            UIKey signal,
+            string customSignal,
+            float delaySeconds,
+            UIToggleOutputCondition toggleCondition,
+            UIViewOutputCondition viewCondition,
+            float weight,
+            string targetNodeId,
+            UINavigationTransitionKind kind,
+            UINavigationAction[] actions,
+            string sourcePortName = null)
+        {
+            this.triggerKind = UINavigationTriggerKindUtility.Normalize(triggerKind);
             this.signal = signal;
+            this.customSignal = customSignal ?? string.Empty;
             this.delaySeconds = delaySeconds;
             this.toggleCondition = toggleCondition;
             toggleValue = toggleCondition == UIToggleOutputCondition.On;
@@ -129,8 +172,10 @@ namespace NKStudio.UITKNavigation.Navigation
             this.sourcePortName = sourcePortName;
         }
 
-        public UINavigationTriggerKind TriggerKind => triggerKind;
+        public UINavigationTriggerKind TriggerKind =>
+            UINavigationTriggerKindUtility.Normalize(triggerKind);
         public UIKey Signal => signal;
+        public string CustomSignal => customSignal ?? string.Empty;
         public float DelaySeconds => delaySeconds;
         public bool ToggleValue => toggleValue;
         public UIToggleOutputCondition ToggleCondition => toggleCondition;

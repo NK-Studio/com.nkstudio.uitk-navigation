@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NKStudio.UITKNavigation.Identity;
 
 namespace NKStudio.UITKNavigation.Navigation
@@ -24,16 +25,6 @@ namespace NKStudio.UITKNavigation.Navigation
         public static event Action ResyncRequested;
 
         /// <summary>
-        /// Occurs when the signal requested event is raised.
-        /// </summary>
-        public static event Action<UIKey> SignalRequested;
-
-        /// <summary>
-        /// Occurs when the button signal requested event is raised.
-        /// </summary>
-        public static event Action<UIKey> ButtonSignalRequested;
-
-        /// <summary>
         /// Occurs when the toggle requested event is raised.
         /// </summary>
         public static event Action<UIKey, bool> ToggleRequested;
@@ -44,21 +35,6 @@ namespace NKStudio.UITKNavigation.Navigation
         /// Occurs when the go to node requested event is raised.
         /// </summary>
         public static event Action<string> GoToNodeRequested;
-
-        /// <summary>
-        /// Occurs when the view show requested event is raised.
-        /// </summary>
-        public static event Action<UIKey[]> ViewShowRequested;
-
-        /// <summary>
-        /// Occurs when the view hide requested event is raised.
-        /// </summary>
-        public static event Action<UIKey[]> ViewHideRequested;
-
-        /// <summary>
-        /// Occurs when the view resync requested event is raised.
-        /// </summary>
-        public static event Action<UIKey[]> ViewResyncRequested;
 
         /// <summary>
         /// Occurs when the node changing event is raised.
@@ -100,44 +76,6 @@ namespace NKStudio.UITKNavigation.Navigation
         }
 
         /// <summary>
-        /// Performs the request signal operation.
-        /// </summary>
-        public static void RequestSignal(UIKey signal)
-        {
-            if (signal.IsValid)
-                SignalRequested?.Invoke(signal);
-        }
-
-        /// <summary>
-        /// Requests a general navigation signal using category and key components.
-        /// </summary>
-        /// <param name="category">The signal category.</param>
-        /// <param name="key">The signal key.</param>
-        public static void RequestSignal(string category, string key)
-        {
-            RequestSignal(new UIKey(category, key));
-        }
-
-        /// <summary>
-        /// Performs the request button signal operation.
-        /// </summary>
-        public static void RequestButtonSignal(UIKey signal)
-        {
-            if (signal.IsValid)
-                ButtonSignalRequested?.Invoke(signal);
-        }
-
-        /// <summary>
-        /// Requests a button navigation signal using category and key components.
-        /// </summary>
-        /// <param name="category">The button category.</param>
-        /// <param name="key">The button key.</param>
-        public static void RequestButtonSignal(string category, string key)
-        {
-            RequestButtonSignal(new UIKey(category, key));
-        }
-
-        /// <summary>
         /// Performs the request toggle operation.
         /// </summary>
         public static void RequestToggle(UIKey toggle, bool value)
@@ -173,12 +111,12 @@ namespace NKStudio.UITKNavigation.Navigation
                 ViewTransitionStarted?.Invoke(view, condition);
         }
 
-        internal static void ApplyViewShow(UINavigationViewCommand[] commands)
+        internal static void ApplyViewShow(IReadOnlyList<UINavigationViewCommand> commands)
         {
             if (commands == null)
                 return;
 
-            for (int i = 0; i < commands.Length; i++)
+            for (int i = 0; i < commands.Count; i++)
             {
                 UINavigationViewCommand command = commands[i];
                 if (command.IsValid)
@@ -186,12 +124,12 @@ namespace NKStudio.UITKNavigation.Navigation
             }
         }
 
-        internal static void ApplyViewHide(UINavigationViewCommand[] commands)
+        internal static void ApplyViewHide(IReadOnlyList<UINavigationViewCommand> commands)
         {
             if (commands == null)
                 return;
 
-            for (int i = 0; i < commands.Length; i++)
+            for (int i = 0; i < commands.Count; i++)
             {
                 UINavigationViewCommand command = commands[i];
                 if (command.IsValid)
@@ -199,32 +137,9 @@ namespace NKStudio.UITKNavigation.Navigation
             }
         }
 
-        internal static void RaiseViewShowNotification(UIKey[] ids)
-        {
-            ViewShowRequested?.Invoke(ids);
-        }
-
-        internal static void RaiseViewHideNotification(UIKey[] ids)
-        {
-            ViewHideRequested?.Invoke(ids);
-        }
-
-        internal static void RaiseViewShow(UIKey[] ids)
-        {
-            UIViewRegistry.ShowAll(ids);
-            ViewShowRequested?.Invoke(ids);
-        }
-
-        internal static void RaiseViewHide(UIKey[] ids)
-        {
-            UIViewRegistry.HideAll(ids);
-            ViewHideRequested?.Invoke(ids);
-        }
-
-        internal static void RaiseViewResync(UIKey[] ids)
+        internal static void ApplyViewResync(IReadOnlyList<UIKey> ids)
         {
             UIViewRegistry.ResyncTo(ids);
-            ViewResyncRequested?.Invoke(ids);
         }
 
         internal static void RaiseNodeChanging(UINavigationChange change)

@@ -107,7 +107,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             var service = new UINavigationService(_builder.Build());
             service.ShowCommandsRequested += UINavigationEvents.ApplyViewShow;
             service.HideCommandsRequested += UINavigationEvents.ApplyViewHide;
-            service.ResyncRequested += UINavigationEvents.RaiseViewResync;
+            service.ResyncViewsRequested += UINavigationEvents.ApplyViewResync;
             return service;
         }
 

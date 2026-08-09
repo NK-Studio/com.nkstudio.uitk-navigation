@@ -84,9 +84,7 @@ namespace NKStudio.UITKNavigation.Navigation
             Service = new UINavigationService(navigationAsset) { MaxHistoryDepth = maxHistoryDepth };
             Service.HideCommandsRequested += UINavigationEvents.ApplyViewHide;
             Service.ShowCommandsRequested += UINavigationEvents.ApplyViewShow;
-            Service.HideRequested += UINavigationEvents.RaiseViewHideNotification;
-            Service.ShowRequested += UINavigationEvents.RaiseViewShowNotification;
-            Service.ResyncRequested += UINavigationEvents.RaiseViewResync;
+            Service.ResyncViewsRequested += UINavigationEvents.ApplyViewResync;
             Service.ActionRequested += ExecuteAction;
             Service.NodeChanging += UINavigationEvents.RaiseNodeChanging;
             Service.NodeChanged += UINavigationEvents.RaiseNodeChanged;
@@ -94,8 +92,6 @@ namespace NKStudio.UITKNavigation.Navigation
             UINavigationEvents.BackRequested += OnBackRequested;
             UINavigationEvents.ForwardRequested += OnForwardRequested;
             UINavigationEvents.ResyncRequested += OnResyncRequested;
-            UINavigationEvents.SignalRequested += OnSignalRequested;
-            UINavigationEvents.ButtonSignalRequested += OnButtonSignalRequested;
             UINavigationEvents.ToggleRequested += OnToggleRequested;
             UINavigationEvents.ViewTransitionStarted += OnViewTransitionStarted;
             UINavigationEvents.GoToNodeRequested += OnGoToNodeRequested;
@@ -129,8 +125,6 @@ namespace NKStudio.UITKNavigation.Navigation
             UINavigationEvents.BackRequested -= OnBackRequested;
             UINavigationEvents.ForwardRequested -= OnForwardRequested;
             UINavigationEvents.ResyncRequested -= OnResyncRequested;
-            UINavigationEvents.SignalRequested -= OnSignalRequested;
-            UINavigationEvents.ButtonSignalRequested -= OnButtonSignalRequested;
             UINavigationEvents.ToggleRequested -= OnToggleRequested;
             UINavigationEvents.ViewTransitionStarted -= OnViewTransitionStarted;
             UINavigationEvents.GoToNodeRequested -= OnGoToNodeRequested;
@@ -139,9 +133,7 @@ namespace NKStudio.UITKNavigation.Navigation
             {
                 Service.HideCommandsRequested -= UINavigationEvents.ApplyViewHide;
                 Service.ShowCommandsRequested -= UINavigationEvents.ApplyViewShow;
-                Service.HideRequested -= UINavigationEvents.RaiseViewHideNotification;
-                Service.ShowRequested -= UINavigationEvents.RaiseViewShowNotification;
-                Service.ResyncRequested -= UINavigationEvents.RaiseViewResync;
+                Service.ResyncViewsRequested -= UINavigationEvents.ApplyViewResync;
                 Service.ActionRequested -= ExecuteAction;
                 Service.NodeChanging -= UINavigationEvents.RaiseNodeChanging;
                 Service.NodeChanged -= UINavigationEvents.RaiseNodeChanged;
@@ -222,16 +214,6 @@ namespace NKStudio.UITKNavigation.Navigation
         private void OnResyncRequested()
         {
             Service?.Resync();
-        }
-
-        private void OnSignalRequested(UIKey signal)
-        {
-            Service?.Trigger(signal);
-        }
-
-        private void OnButtonSignalRequested(UIKey signal)
-        {
-            Service?.TriggerButton(signal);
         }
 
         private void OnToggleRequested(UIKey toggle, bool value)

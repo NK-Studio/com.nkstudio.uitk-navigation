@@ -14,7 +14,7 @@ namespace NKStudio.UITKNavigation.Elements
         /// <summary>
         /// Gets or sets the catalog category used to resolve this toggle's navigation output.
         /// </summary>
-        [UIKeySelector(nameof(ToggleKey), UIKeyCatalogKind.Button)]
+        [UIKeySelector(nameof(ToggleKey), UIKeyCatalogKind.Toggle)]
         [UxmlAttribute("toggle-category")]
         public string ToggleCategory { get; set; } = "Default";
 

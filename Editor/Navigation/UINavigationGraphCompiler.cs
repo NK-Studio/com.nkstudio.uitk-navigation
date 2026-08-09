@@ -28,6 +28,11 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 .Where(node => node is UINavigationUINode)
                 .Select(node => (UINavigationUINode)node)
                 .ToList();
+            List<UINavigationSendSignalNode> destinationNodes = graph.GetNodes()
+                .AsValueEnumerable()
+                .Where(node => node is UINavigationSendSignalNode)
+                .Select(node => (UINavigationSendSignalNode)node)
+                .ToList();
             List<UINavigationRandomNode> randomNodes = graph.GetNodes()
                 .AsValueEnumerable()
                 .Where(node => node is UINavigationRandomNode)
@@ -53,6 +58,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 startNodes,
                 actionNodes,
                 portalNodes,
+                destinationNodes,
                 errors);
 
             var runtimeByScreen = new Dictionary<UINavigationUINodeBase, UINavigationNode>();
@@ -79,6 +85,32 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     useBack,
                     description);
                 runtimeByScreen.Add(screen, runtimeNode);
+            }
+
+            foreach (UINavigationSendSignalNode destination in destinationNodes)
+            {
+                string id = destination.GetNodeId();
+                string displayName = destination.GetOptionValue(
+                    UINavigationUINodeBase.DisplayNameOption,
+                    id);
+                bool clearHistory = destination.GetOptionValue(
+                    UINavigationUINodeBase.ClearHistoryOption,
+                    false);
+                string description = destination.GetOptionValue(
+                    UINavigationUINodeBase.DescriptionOption,
+                    string.Empty);
+                var runtimeNode = new UINavigationNode(
+                    id,
+                    displayName,
+                    clearHistory,
+                    false,
+                    description);
+                UINavigationSignalAddress address = destination.GetAddress();
+                runtimeNode.SetDestination(
+                    address.Kind,
+                    address.DatabaseSignal,
+                    address.CustomSignal);
+                runtimeByScreen.Add(destination, runtimeNode);
             }
 
             foreach (UINavigationRandomNode random in randomNodes)
@@ -116,10 +148,20 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                         Array.Empty<UINavigationViewCommand>(),
                         transitions.ToArray());
                 }
+                else if (nodeBase is UINavigationSendSignalNode)
+                {
+                    runtimeNode.SetContents(
+                        Array.Empty<UINavigationViewCommand>(),
+                        Array.Empty<UINavigationViewCommand>(),
+                        Array.Empty<UINavigationViewCommand>(),
+                        Array.Empty<UINavigationViewCommand>(),
+                        Array.Empty<UINavigationTransition>());
+                }
             }
 
             var portalTransitions = new List<UINavigationTransition>();
             var portalKeys = new HashSet<(UINavigationTriggerKind, UIKey, bool)>();
+            var customPortalKeys = new HashSet<string>(StringComparer.Ordinal);
             foreach (UINavigationPortalNode portalNode in portalNodes)
             {
                 UINavigationPortalCondition condition = portalNode.GetCondition();
@@ -127,8 +169,14 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 UINavigationTriggerKind trigger = condition.RuntimeTriggerKind;
                 bool toggleValue = trigger == UINavigationTriggerKind.Toggle &&
                                    condition.ToggleValue;
-                if (!key.IsValid ||
-                    !portalKeys.Add((trigger, key, toggleValue)) ||
+                bool customSignal =
+                    trigger == UINavigationTriggerKind.Signal &&
+                    condition.SignalAddressKind == UINavigationSignalAddressKind.Custom;
+                bool validAddress = customSignal
+                    ? !string.IsNullOrEmpty(condition.CustomSignal) &&
+                      customPortalKeys.Add(condition.CustomSignal)
+                    : key.IsValid && portalKeys.Add((trigger, key, toggleValue));
+                if (!validAddress ||
                     !TryCompileActionChain(
                         portalNode.GetOutputPortByName(UINavigationPortalNode.NextPort),
                         $"Portal '{key}'",
@@ -141,8 +189,13 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 portalTransitions.Add(new UINavigationTransition(
                     trigger,
                     key,
+                    customSignal ? condition.CustomSignal : string.Empty,
                     0f,
-                    toggleValue,
+                    toggleValue
+                        ? UIToggleOutputCondition.On
+                        : UIToggleOutputCondition.Off,
+                    UIViewOutputCondition.Show,
+                    100f,
                     targetNodeId,
                     portalNode.GetOptionValue(
                         UINavigationPortalNode.HistoryOption,
@@ -150,11 +203,14 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     actions));
             }
 
-            var runtimeNodes = new List<UINavigationNode>(screens.Count + randomNodes.Count);
+            var runtimeNodes = new List<UINavigationNode>(
+                screens.Count + randomNodes.Count + destinationNodes.Count);
             foreach (UINavigationUINode screen in screens)
                 runtimeNodes.Add(runtimeByScreen[screen]);
             foreach (UINavigationRandomNode random in randomNodes)
                 runtimeNodes.Add(runtimeByScreen[random]);
+            foreach (UINavigationSendSignalNode destination in destinationNodes)
+                runtimeNodes.Add(runtimeByScreen[destination]);
 
             UINavigationUINodeBase start = GetStartTarget(startNodes);
             asset.SetContents(
@@ -191,7 +247,12 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 .Where(node => node is UINavigationPortalNode)
                 .Select(node => (UINavigationPortalNode)node)
                 .ToList();
-            if (screens.Count == 0)
+            List<UINavigationSendSignalNode> destinations = screens
+                .AsValueEnumerable()
+                .Where(node => node is UINavigationSendSignalNode)
+                .Select(node => (UINavigationSendSignalNode)node)
+                .ToList();
+            if (!screens.AsValueEnumerable().Any(node => node is not UINavigationSendSignalNode))
                 logger.LogError("Screen 노드가 하나 이상 필요합니다.");
 
             if (starts.Count == 0)
@@ -222,8 +283,12 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 ValidateAction(action, logger);
 
             var portalKeys = new HashSet<(UINavigationTriggerKind, UIKey, bool)>();
+            var customPortalKeys = new HashSet<string>(StringComparer.Ordinal);
             foreach (UINavigationPortalNode portal in portals)
-                ValidatePortal(portal, portalKeys, logger);
+                ValidatePortal(portal, portalKeys, customPortalKeys, logger);
+
+            foreach (UINavigationSendSignalNode destination in destinations)
+                ValidateDestination(destination, portals, logger);
 
             foreach (UINavigationUINodeBase screen in screens)
             {
@@ -244,7 +309,6 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 if (source is not UINavigationUINodeBase &&
                     source is not UINavigationPortalNode &&
                     source is not UINavigationStartNode &&
-                    source is not UINavigationPivotNode &&
                     !IsContinuingActionNode(source))
                 {
                     logger.LogError(
@@ -255,7 +319,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
             if (screen is UINavigationUINode uiNode)
                 ValidateUIOutputs(uiNode, logger);
-            else if (screen is UINavigationRandomNode randomNode)
+            if (screen is UINavigationRandomNode randomNode)
                 ValidateRandomOutputs(randomNode, logger);
         }
 
@@ -332,8 +396,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             INode target = targets.Count == 1 && targets[0] != null
                 ? ResolveForward(targets[0])
                 : null;
-            if (target is not UINavigationUINodeBase &&
-                target is not UINavigationPivotNode)
+            if (target is not UINavigationUINodeBase || target is UINavigationSendSignalNode)
             {
                 logger.LogError("Start는 정확히 하나의 Screen Enter에 연결해야 합니다.", start);
             }
@@ -351,7 +414,6 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 : null;
             if (source is not UINavigationUINodeBase &&
                 source is not UINavigationPortalNode &&
-                source is not UINavigationPivotNode &&
                 !IsContinuingActionNode(source))
             {
                 logger.LogError(
@@ -405,9 +467,50 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             }
         }
 
+        private static void ValidateDestination(
+            UINavigationSendSignalNode destination,
+            IReadOnlyCollection<UINavigationPortalNode> portals,
+            GraphLogger logger)
+        {
+            UINavigationSignalAddress address = destination.GetAddress();
+            bool valid = address.Kind == UINavigationSignalAddressKind.Custom
+                ? !string.IsNullOrEmpty(address.CustomSignal)
+                : address.DatabaseSignal.IsValid;
+            if (!valid)
+                logger.LogError("Destination의 이동 Signal 주소가 비어 있습니다.", destination);
+            else
+            {
+                bool hasPortal = portals.AsValueEnumerable().Any(portal =>
+                {
+                    UINavigationPortalCondition condition = portal.GetCondition();
+                    if (condition.RuntimeTriggerKind != UINavigationTriggerKind.Signal ||
+                        condition.SignalAddressKind != address.Kind)
+                    {
+                        return false;
+                    }
+
+                    return address.Kind == UINavigationSignalAddressKind.Custom
+                        ? string.Equals(
+                            condition.CustomSignal,
+                            address.CustomSignal,
+                            StringComparison.Ordinal)
+                        : condition.Key == address.DatabaseSignal;
+                });
+                if (!hasPortal)
+                    logger.LogError("Destination과 같은 Signal 주소를 가진 Portal이 없습니다.", destination);
+            }
+
+            List<IPort> sources = destination
+                .GetInputPortByName(UINavigationUINodeBase.EnterPort)
+                .GetConnections();
+            if (sources.Count == 0)
+                logger.LogError("Destination은 하나 이상의 전이 출력과 연결해야 합니다.", destination);
+        }
+
         private static void ValidatePortal(
             UINavigationPortalNode portal,
             ISet<(UINavigationTriggerKind, UIKey, bool)> portalKeys,
+            ISet<string> customPortalKeys,
             GraphLogger logger)
         {
             UINavigationPortalCondition condition = portal.GetCondition();
@@ -416,9 +519,16 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             bool toggleValue = trigger == UINavigationTriggerKind.Toggle &&
                                condition.ToggleValue;
 
-            if (!key.IsValid)
+            bool customSignal =
+                trigger == UINavigationTriggerKind.Signal &&
+                condition.SignalAddressKind == UINavigationSignalAddressKind.Custom;
+            if (customSignal && string.IsNullOrEmpty(condition.CustomSignal))
+                logger.LogError("Portal의 Custom Signal이 비어 있습니다.", portal);
+            else if (customSignal && !customPortalKeys.Add(condition.CustomSignal))
+                logger.LogError("중복된 Portal Custom Signal입니다: " + condition.CustomSignal, portal);
+            else if (!customSignal && !key.IsValid)
                 logger.LogError("Portal의 Category/Key가 비어 있습니다.", portal);
-            else
+            else if (!customSignal)
             {
                 if (!portalKeys.Add((trigger, key, toggleValue)))
                     logger.LogError($"중복된 Portal 조건입니다: {trigger} {key}", portal);
@@ -473,6 +583,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             IReadOnlyCollection<UINavigationStartNode> starts,
             IReadOnlyCollection<UINavigationActionNodeBase> actions,
             IReadOnlyCollection<UINavigationPortalNode> portals,
+            IReadOnlyCollection<UINavigationSendSignalNode> destinations,
             ICollection<string> errors)
         {
             if (errors == null)
@@ -492,8 +603,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 INode target = targets.Count == 1 && targets[0] != null
                     ? ResolveForward(targets[0])
                     : null;
-                if (target is not UINavigationUINodeBase &&
-                    target is not UINavigationPivotNode)
+                if (target is not UINavigationUINodeBase || target is UINavigationSendSignalNode)
                 {
                     AddError(errors, "Start는 정확히 하나의 Screen Enter에 연결해야 합니다.");
                 }
@@ -510,6 +620,15 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
             }
 
+            foreach (UINavigationSendSignalNode destination in destinations)
+            {
+                string id = destination.GetNodeId();
+                if (string.IsNullOrEmpty(id))
+                    AddError(errors, "Node ID가 비어 있는 Destination이 있습니다.");
+                else if (!ids.Add(id))
+                    AddError(errors, "중복된 Node ID입니다: " + id);
+            }
+
             foreach (UINavigationActionNodeBase action in actions)
             {
                 List<IPort> sources = action
@@ -520,7 +639,6 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     : null;
                 if (source is not UINavigationUINodeBase &&
                     source is not UINavigationPortalNode &&
-                    source is not UINavigationPivotNode &&
                     !IsContinuingActionNode(source))
                 {
                     AddError(errors, "Action의 Enter 연결이 올바르지 않습니다.");
@@ -569,6 +687,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             }
 
             var portalKeys = new HashSet<(UINavigationTriggerKind, UIKey, bool)>();
+            var customPortalKeys = new HashSet<string>(StringComparer.Ordinal);
             foreach (UINavigationPortalNode portal in portals)
             {
                 UINavigationPortalCondition condition = portal.GetCondition();
@@ -576,9 +695,16 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 UINavigationTriggerKind trigger = condition.RuntimeTriggerKind;
                 bool toggleValue = trigger == UINavigationTriggerKind.Toggle &&
                                    condition.ToggleValue;
-                if (!key.IsValid)
+                bool customSignal =
+                    trigger == UINavigationTriggerKind.Signal &&
+                    condition.SignalAddressKind == UINavigationSignalAddressKind.Custom;
+                if (customSignal && string.IsNullOrEmpty(condition.CustomSignal))
+                    AddError(errors, "Portal의 Custom Signal이 비어 있습니다.");
+                else if (customSignal && !customPortalKeys.Add(condition.CustomSignal))
+                    AddError(errors, "중복된 Portal Custom Signal입니다: " + condition.CustomSignal);
+                else if (!customSignal && !key.IsValid)
                     AddError(errors, "Portal의 Category/Key가 비어 있습니다.");
-                else if (!portalKeys.Add((trigger, key, toggleValue)))
+                else if (!customSignal && !portalKeys.Add((trigger, key, toggleValue)))
                     AddError(errors, $"중복된 Portal 조건입니다: {trigger} {key}");
 
                 List<IPort> targets = portal
@@ -588,6 +714,26 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     targets[0] == null ||
                     !IsActionChainTarget(ResolveForward(targets[0])))
                     AddError(errors, $"Portal '{key}'의 대상 연결이 올바르지 않습니다.");
+            }
+
+            foreach (UINavigationSendSignalNode destination in destinations)
+            {
+                UINavigationSignalAddress address = destination.GetAddress();
+                if (address.Kind == UINavigationSignalAddressKind.Custom)
+                {
+                    if (string.IsNullOrEmpty(address.CustomSignal))
+                        AddError(errors, "Destination의 Custom Signal이 비어 있습니다.");
+                }
+                else if (!address.DatabaseSignal.IsValid)
+                {
+                    AddError(errors, "Destination의 Database Signal이 비어 있습니다.");
+                }
+
+                List<IPort> sources = destination
+                    .GetInputPortByName(UINavigationUINodeBase.EnterPort)
+                    .GetConnections();
+                if (sources.Count == 0)
+                    AddError(errors, "Destination의 Enter 연결이 올바르지 않습니다.");
             }
         }
 
@@ -624,12 +770,6 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                         $"{label}의 실행 체인에 순환 연결이 있습니다.");
                     actions = Array.Empty<UINavigationAction>();
                     return false;
-                }
-
-                if (next is UINavigationPivotNode pivot)
-                {
-                    output = pivot.GetExitPort();
-                    continue;
                 }
 
                 if (next is UINavigationUINodeBase screen)
@@ -764,60 +904,24 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         private static bool IsActionChainTarget(INode node)
         {
             return node is UINavigationUINodeBase ||
-                   node is UINavigationActionNodeBase ||
-                   node is UINavigationPivotNode;
+                   node is UINavigationActionNodeBase;
         }
 
-        /// <summary>
-        /// Resolves f or wa rd.
-        /// </summary>
         private static INode ResolveForward(IPort targetPort)
         {
-            INode node = INodeExtensions.GetNode(targetPort);
-            var visited = new HashSet<INode>();
-            while (node is UINavigationPivotNode pivot)
-            {
-                if (!visited.Add(pivot))
-                    return pivot;
-
-                List<IPort> next = pivot.GetExitPort().GetConnections();
-                if (next.Count != 1 || next[0] == null)
-                    return pivot;
-
-                node = INodeExtensions.GetNode(next[0]);
-            }
-
-            return node;
+            return INodeExtensions.GetNode(targetPort);
         }
 
-        /// <summary>
-        /// Resolves b ac kw ar d.
-        /// </summary>
         private static INode ResolveBackward(IPort sourcePort)
         {
-            INode node = INodeExtensions.GetNode(sourcePort);
-            var visited = new HashSet<INode>();
-            while (node is UINavigationPivotNode pivot)
-            {
-                if (!visited.Add(pivot))
-                    return pivot;
-
-                List<IPort> previous = pivot.GetEnterPort().GetConnections();
-                if (previous.Count != 1 || previous[0] == null)
-                    return pivot;
-
-                node = INodeExtensions.GetNode(previous[0]);
-            }
-
-            return node;
+            return INodeExtensions.GetNode(sourcePort);
         }
 
         private static UIKeyCatalogKind GetCatalogKind(UINavigationTriggerKind trigger)
         {
             return trigger switch
             {
-                UINavigationTriggerKind.UIButton => UIKeyCatalogKind.Button,
-                UINavigationTriggerKind.Toggle => UIKeyCatalogKind.Button,
+                UINavigationTriggerKind.Toggle => UIKeyCatalogKind.Toggle,
                 UINavigationTriggerKind.UIView => UIKeyCatalogKind.View,
                 _ => UIKeyCatalogKind.Signal
             };
@@ -831,6 +935,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         {
             UINavigationOutputDefinition[] outputs = uiNode.GetOutputs();
             var keyed = new HashSet<(UINavigationTriggerKind, UIKey)>();
+            var customSignals = new HashSet<string>(StringComparer.Ordinal);
             var toggles = new Dictionary<UIKey, HashSet<UIToggleOutputCondition>>();
             var views = new HashSet<(UIKey, UIViewOutputCondition)>();
 
@@ -840,13 +945,30 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 if (output == null)
                     continue;
 
-                if (output.Trigger != UINavigationTriggerKind.TimeDelay && !output.Key.IsValid)
+                bool customSignal =
+                    output.Trigger == UINavigationTriggerKind.Signal &&
+                    output.SignalAddressKind == UINavigationSignalAddressKind.Custom;
+                if (customSignal && string.IsNullOrEmpty(output.CustomSignal))
+                {
+                    AddError(errors, $"UI Output #{index + 1} has an empty Custom Signal.");
+                    continue;
+                }
+
+                if (output.Trigger != UINavigationTriggerKind.TimeDelay &&
+                    !customSignal &&
+                    !output.Key.IsValid)
                 {
                     AddError(errors, $"UI Output #{index + 1} has an empty Category/Key.");
                     continue;
                 }
 
-                if (!TryRegisterOutput(output, keyed, toggles, views, out string conflict))
+                if (!TryRegisterOutput(
+                        output,
+                        keyed,
+                        customSignals,
+                        toggles,
+                        views,
+                        out string conflict))
                 {
                     AddError(errors, conflict);
                     continue;
@@ -899,6 +1021,9 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             transitions.Add(new UINavigationTransition(
                 output.Trigger,
                 output.Key,
+                output.SignalAddressKind == UINavigationSignalAddressKind.Custom
+                    ? output.CustomSignal
+                    : string.Empty,
                 output.DelaySeconds,
                 output.ToggleCondition,
                 output.ViewCondition,
@@ -915,6 +1040,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         {
             UINavigationOutputDefinition[] outputs = uiNode.GetOutputs();
             var keyed = new HashSet<(UINavigationTriggerKind, UIKey)>();
+            var customSignals = new HashSet<string>(StringComparer.Ordinal);
             var toggles = new Dictionary<UIKey, HashSet<UIToggleOutputCondition>>();
             var views = new HashSet<(UIKey, UIViewOutputCondition)>();
 
@@ -927,7 +1053,15 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     continue;
                 }
 
-                if (output.Trigger != UINavigationTriggerKind.TimeDelay)
+                bool customSignal =
+                    output.Trigger == UINavigationTriggerKind.Signal &&
+                    output.SignalAddressKind == UINavigationSignalAddressKind.Custom;
+                if (customSignal)
+                {
+                    if (string.IsNullOrEmpty(output.CustomSignal))
+                        logger.LogError($"Output #{index + 1} has an empty Custom Signal.", uiNode);
+                }
+                else if (output.Trigger != UINavigationTriggerKind.TimeDelay)
                 {
                     if (!output.Key.IsValid)
                     {
@@ -941,7 +1075,13 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     }
                 }
 
-                if (!TryRegisterOutput(output, keyed, toggles, views, out string conflict))
+                if (!TryRegisterOutput(
+                        output,
+                        keyed,
+                        customSignals,
+                        toggles,
+                        views,
+                        out string conflict))
                     logger.LogError(conflict, uiNode);
 
                 if (output.Trigger == UINavigationTriggerKind.TimeDelay &&
@@ -1001,12 +1141,31 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         private static bool TryRegisterOutput(
             UINavigationOutputDefinition output,
             ISet<(UINavigationTriggerKind, UIKey)> keyed,
+            ISet<string> customSignals,
             IDictionary<UIKey, HashSet<UIToggleOutputCondition>> toggles,
             ISet<(UIKey, UIViewOutputCondition)> views,
             out string error)
         {
             error = null;
-            if (output.Trigger == UINavigationTriggerKind.TimeDelay || !output.Key.IsValid)
+            if (output.Trigger == UINavigationTriggerKind.TimeDelay)
+                return true;
+
+            if (output.Trigger == UINavigationTriggerKind.Signal &&
+                output.SignalAddressKind == UINavigationSignalAddressKind.Custom)
+            {
+                if (string.IsNullOrEmpty(output.CustomSignal))
+                    return true;
+
+                if (!customSignals.Add(output.CustomSignal))
+                {
+                    error = "Duplicate Custom Signal: " + output.CustomSignal;
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (!output.Key.IsValid)
                 return true;
 
             if (output.Trigger == UINavigationTriggerKind.Toggle)
@@ -1146,7 +1305,8 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             if (targets.Count != 1 || targets[0] == null)
                 return null;
 
-            return ResolveForward(targets[0]) as UINavigationUINodeBase;
+            UINavigationUINodeBase target = ResolveForward(targets[0]) as UINavigationUINodeBase;
+            return target is UINavigationSendSignalNode ? null : target;
         }
 
         private static UINavigationViewCommand[] ValidCommands(

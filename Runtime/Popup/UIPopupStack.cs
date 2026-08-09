@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 
 using Unity.Properties;
+using UnityEngine.Pool;
 using UnityEngine.UIElements;
 
 namespace NKStudio.UITKNavigation.Popup
@@ -305,12 +306,28 @@ namespace NKStudio.UITKNavigation.Popup
 
         private static void RefreshBindings(VisualElement element)
         {
-            List<BindingInfo> bindings = new List<BindingInfo>(element.GetBindingInfos());
+            List<BindingInfo> bindings = ListPool<BindingInfo>.Get();
+            try
+            {
+                RefreshBindings(element, bindings);
+            }
+            finally
+            {
+                ListPool<BindingInfo>.Release(bindings);
+            }
+        }
+
+        private static void RefreshBindings(
+            VisualElement element,
+            List<BindingInfo> bindings)
+        {
+            bindings.Clear();
+            element.GetBindingInfos(bindings);
             for (int i = 0; i < bindings.Count; i++)
                 ApplyInitialToTarget(element, bindings[i]);
 
             for (int i = 0; i < element.hierarchy.childCount; i++)
-                RefreshBindings(element.hierarchy[i]);
+                RefreshBindings(element.hierarchy[i], bindings);
         }
 
         private static void ApplyInitialToTarget(
@@ -342,12 +359,12 @@ namespace NKStudio.UITKNavigation.Popup
                 : context.dataSourcePath;
             if (!PropertyContainer.TryGetValue(
                     source,
-                    sourcePath.ToString(),
+                    sourcePath,
                     out object value))
                 return;
 
             object boxedTarget = targetElement;
-            var targetPath = new PropertyPath(bindingInfo.bindingId.ToString());
+            PropertyPath targetPath = bindingInfo.bindingId;
             dataBinding.sourceToUiConverters.TrySetValue(
                 ref boxedTarget,
                 targetPath,

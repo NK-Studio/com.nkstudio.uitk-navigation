@@ -11,8 +11,13 @@ namespace NKStudio.UITKNavigation.Animation
     /// </summary>
     internal sealed class UIAnimator : IDisposable
     {
+        private static readonly StyleList<TimeValue> SuppressedTransitionDuration =
+            new StyleList<TimeValue>(new List<TimeValue> { new TimeValue(0f) });
+
         private readonly List<UIAnimationBinding> _bindings = new List<UIAnimationBinding>();
         private readonly List<TransitionOverride> _transitionOverrides = new List<TransitionOverride>();
+        private readonly HashSet<VisualElement> _overriddenElements = new HashSet<VisualElement>();
+        private int _transitionOverrideCount;
 
         private MotionHandle _handle;
         private Action _onComplete;
@@ -169,43 +174,61 @@ namespace NKStudio.UITKNavigation.Animation
             for (int i = 0; i < _bindings.Count; i++)
             {
                 VisualElement element = _bindings[i].Element;
-                if (element == null || _transitionOverrides.Exists(item => item.Element == element))
+                if (element == null || !_overriddenElements.Add(element))
                     continue;
 
-                _transitionOverrides.Add(new TransitionOverride(element, element.style.transitionDuration));
-                element.style.transitionDuration = new List<TimeValue> { new TimeValue(0f) };
+                TransitionOverride transitionOverride;
+                if (_transitionOverrideCount < _transitionOverrides.Count)
+                {
+                    transitionOverride = _transitionOverrides[_transitionOverrideCount];
+                }
+                else
+                {
+                    transitionOverride = new TransitionOverride();
+                    _transitionOverrides.Add(transitionOverride);
+                }
+
+                transitionOverride.Capture(element, element.style.transitionDuration);
+                _transitionOverrideCount++;
+                element.style.transitionDuration = SuppressedTransitionDuration;
             }
         }
 
         private void RestoreTransitions()
         {
-            for (int i = 0; i < _transitionOverrides.Count; i++)
+            for (int i = 0; i < _transitionOverrideCount; i++)
             {
                 TransitionOverride item = _transitionOverrides[i];
                 if (item.Element != null)
-                    item.Element.style.transitionDuration = item.ToStyleList();
+                    item.Restore();
             }
-            _transitionOverrides.Clear();
+            _transitionOverrideCount = 0;
+            _overriddenElements.Clear();
         }
 
-        private readonly struct TransitionOverride
+        private sealed class TransitionOverride
         {
-            public readonly VisualElement Element;
-            private readonly StyleKeyword _keyword;
-            private readonly List<TimeValue> _values;
+            private readonly List<TimeValue> _values = new List<TimeValue>();
+            private StyleKeyword _keyword;
 
-            public TransitionOverride(VisualElement element, StyleList<TimeValue> duration)
+            public VisualElement Element { get; private set; }
+
+            public void Capture(VisualElement element, StyleList<TimeValue> duration)
             {
                 Element = element;
                 _keyword = duration.keyword;
-                _values = duration.value != null ? new List<TimeValue>(duration.value) : null;
+                _values.Clear();
+                if (duration.value != null)
+                    _values.AddRange(duration.value);
             }
 
-            public StyleList<TimeValue> ToStyleList()
+            public void Restore()
             {
-                return _keyword == StyleKeyword.Undefined && _values != null
-                    ? new StyleList<TimeValue>(new List<TimeValue>(_values))
-                    : new StyleList<TimeValue>(_keyword);
+                Element.style.transitionDuration =
+                    _keyword == StyleKeyword.Undefined
+                        ? new StyleList<TimeValue>(_values)
+                        : new StyleList<TimeValue>(_keyword);
+                Element = null;
             }
         }
         private void ApplyProgress(float progress)

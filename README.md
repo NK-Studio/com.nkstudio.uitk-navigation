@@ -71,10 +71,18 @@ LitMotion과 ZLinq는 Git 패키지이므로 UITK Navigation의 레지스트리 
 
 `NavElement`는 패널에 연결되면 `Demo/Home`으로 등록됩니다. `NavButton`은 클릭할 때 `Demo/OpenSettings` 신호를 현재 Navigation Service에 전달합니다.
 
+코드에서는 Doozy 스타일의 정적 API로 같은 Signal 출력을 실행할 수 있습니다.
+
+```csharp
+using NKStudio.UITKNavigation.Navigation;
+
+bool handled = Signal.Send("Demo", "OpenSettings");
+```
+
 ## Navigation Graph
 
 - **Start**는 그래프당 하나인 진입점입니다.
-- **UI** 노드는 진입/이탈 시 Show/Hide할 View와 Button, Toggle, Delay, View 완료 출력을 정의합니다.
+- **UI** 노드는 진입/이탈 시 Show/Hide할 View와 Signal, Toggle, Delay, View 완료 출력을 정의합니다.
 - **Use Back**을 켠 UI는 방문 기록에 Push되어 Esc 또는 마우스 뒤로 버튼으로 돌아갈 수 있습니다.
 - **Set Time Scale**, **Load Scene**, **Set Active Loaded Scene**, **Unload Scene**, **Application Quit** Action을 연결할 수 있습니다.
 - `.uinavgraph`를 저장하면 런타임 에셋으로 자동 컴파일됩니다.
@@ -104,7 +112,7 @@ var settings = graph.AddScreen("settings", "Settings", new Vector2(760, 100))
 
 graph.Connect(start, home);
 graph.Connect(
-    home.AddButtonOutput(new UIKey("Main", "OpenSettings")),
+    home.AddSignalOutput(new UIKey("Main", "OpenSettings")),
     settings);
 graph.Save(openGraph: true);
 ```

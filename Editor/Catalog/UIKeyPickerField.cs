@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using NKStudio.UITKNavigation.Identity;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using ZLinq;
@@ -17,13 +18,27 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         }
     }
 
-    internal sealed class UIKeyPickerField : BaseField<UIKey>
+    internal sealed class UIKeyPickerField : VisualElement
     {
+        private sealed class PickerBaseField : BaseField<UIKey>
+        {
+            internal PickerBaseField(string label, VisualElement input)
+                : base(label, input)
+            {
+            }
+        }
+
         private readonly Func<UIKey> _getter;
         private readonly Action<UIKey> _setter;
         private readonly Func<UIKeyCatalogKind> _kindGetter;
         private const string EditNameIconPath =
             "Packages/com.nkstudio.uitk-navigation/Editor/Assets/EditNameIcon.svg";
+        private const string GraphPropertyFieldUssClassName =
+            "ge-model-property-field";
+        private const string GraphPropertyFieldLabelUssClassName =
+            "ge-model-property-field__label";
+        private const string GraphPropertyFieldInputUssClassName =
+            "ge-model-property-field__input";
 
         private readonly SerializedProperty _owner;
         private readonly Button _pickerButton;
@@ -42,8 +57,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             Func<UIKey> getter,
             Action<UIKey> setter,
             Func<UIKeyCatalogKind> kindGetter = null,
-            SerializedProperty owner = null)
-            : base(label, new VisualElement())
+            SerializedProperty owner = null,
+            bool graphInspectorLayout = false)
         {
             UIKeyProjectService.EnsureCatalogIsSeparated();
 
@@ -52,21 +67,50 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             _kindGetter = kindGetter ?? (() => UIKeyCatalogKind.Signal);
             _owner = owner;
 
-            if (string.IsNullOrEmpty(label))
-                labelElement.style.display = DisplayStyle.None;
-            else
-                AddToClassList(alignedFieldUssClassName);
+            var input = new VisualElement();
+            var field = new PickerBaseField(label, input)
+            {
+                name = "field"
+            };
+            Add(field);
 
-            VisualElement input = this.Q<VisualElement>(className: inputUssClassName);
+            if (graphInspectorLayout)
+            {
+                AddToClassList(GraphPropertyFieldUssClassName);
+                AddToClassList(PropertyField.ussClassName);
+                field.AddToClassList(BaseField<UIKey>.alignedFieldUssClassName);
+
+                field.labelElement.AddToClassList(
+                    GraphPropertyFieldLabelUssClassName);
+                field.labelElement.AddToClassList(PropertyField.labelUssClassName);
+                input.AddToClassList(GraphPropertyFieldInputUssClassName);
+                input.AddToClassList(PropertyField.inputUssClassName);
+
+                if (string.IsNullOrEmpty(label))
+                    field.labelElement.style.display = DisplayStyle.None;
+            }
+            else if (string.IsNullOrEmpty(label))
+            {
+                field.labelElement.style.display = DisplayStyle.None;
+            }
+            else
+            {
+                field.AddToClassList(BaseField<UIKey>.alignedFieldUssClassName);
+            }
+
             input.style.flexDirection = FlexDirection.Column;
+            input.style.minWidth = 0f;
 
             var mainRow = new VisualElement();
             mainRow.style.flexDirection = FlexDirection.Row;
             mainRow.style.alignItems = Align.Center;
+            mainRow.style.minWidth = 0f;
             input.Add(mainRow);
 
             _pickerButton = new Button(ShowPicker);
             _pickerButton.style.flexGrow = 1f;
+            _pickerButton.style.flexShrink = 1f;
+            _pickerButton.style.minWidth = 0f;
             _pickerButton.style.unityTextAlign = TextAnchor.MiddleLeft;
             _pickerButton.tooltip = "등록된 UI Navigation Category/Key를 검색합니다.";
             mainRow.Add(_pickerButton);
@@ -85,12 +129,15 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
             _warning = new Label("⚠");
             _warning.style.marginLeft = 4f;
+            _warning.style.flexShrink = 0f;
             _warning.style.color = new Color(1f, 0.65f, 0.15f);
             mainRow.Add(_warning);
 
             _addButton = new Button(AddCurrentToCatalog) { text = "Add" };
             _addButton.tooltip = "현재 문자열 주소를 Key Catalog에 등록합니다.";
             _addButton.style.marginLeft = 2f;
+            _addButton.style.minWidth = 44f;
+            _addButton.style.flexShrink = 0f;
             mainRow.Add(_addButton);
 
             _customRow = new VisualElement();
@@ -177,6 +224,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         {
             var button = new Button(clicked) { tooltip = tooltip };
             button.style.width = 24f;
+            button.style.flexShrink = 0f;
             button.style.marginLeft = 2f;
             button.style.paddingLeft = 2f;
             button.style.paddingRight = 2f;
@@ -210,6 +258,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 tooltip = tooltip
             };
             button.style.width = 24f;
+            button.style.flexShrink = 0f;
             button.style.marginLeft = 2f;
             button.style.paddingLeft = 2f;
             button.style.paddingRight = 2f;

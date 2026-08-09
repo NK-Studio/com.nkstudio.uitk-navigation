@@ -15,7 +15,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
     internal enum UIKeyUsageKind
     {
         View,
-        Button,
+        Toggle,
         Signal,
         ShowOnEnter,
         HideOnEnter,
@@ -104,7 +104,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                     UIKeyUsageKind.HideOnEnter or
                     UIKeyUsageKind.ShowOnExit or
                     UIKeyUsageKind.HideOnExit => UIKeyCatalogKind.View,
-                UIKeyUsageKind.Button => UIKeyCatalogKind.Button,
+                UIKeyUsageKind.Toggle => UIKeyCatalogKind.Toggle,
                 _ => UIKeyCatalogKind.Signal
             };
         }
@@ -247,7 +247,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                                 element,
                                 "signal-category",
                                 "signal-key",
-                                UIKeyUsageKind.Button);
+                                UIKeyUsageKind.Signal);
                         }
                         else if (element.LocalName == "NavToggle")
                         {
@@ -257,7 +257,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                                 element,
                                 "toggle-category",
                                 "toggle-key",
-                                UIKeyUsageKind.Button);
+                                UIKeyUsageKind.Toggle);
                         }
                     }
                 }
@@ -282,18 +282,33 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
                     foreach (INode node in graph.GetNodes())
                     {
-                        if (node is UINavigationPortalNode portal)
+                        if (node is UINavigationSendSignalNode destination)
+                        {
+                            UINavigationSignalAddress address = destination.GetAddress();
+                            if (address.Kind == UINavigationSignalAddressKind.Database &&
+                                address.DatabaseSignal.IsValid)
+                            {
+                                usages.Add(new UIKeyUsage(
+                                    address.DatabaseSignal,
+                                    path,
+                                    UIKeyUsageKind.Signal,
+                                    destination.ToString()));
+                            }
+                        }
+                        else if (node is UINavigationPortalNode portal)
                         {
                             UINavigationPortalCondition condition = portal.GetCondition();
                             UIKey key = condition.Key;
-                            if (key.IsValid)
+                            if (!(condition.RuntimeTriggerKind == UINavigationTriggerKind.Signal &&
+                                  condition.SignalAddressKind == UINavigationSignalAddressKind.Custom) &&
+                                key.IsValid)
                             {
                                 usages.Add(new UIKeyUsage(
                                     key,
                                     path,
                                     condition.RuntimeTriggerKind is
-                                        UINavigationTriggerKind.UIButton or UINavigationTriggerKind.Toggle
-                                        ? UIKeyUsageKind.Button
+                                        UINavigationTriggerKind.Toggle
+                                        ? UIKeyUsageKind.Toggle
                                         : UIKeyUsageKind.Signal,
                                     portal.ToString()));
                             }
@@ -306,6 +321,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                                          .AsValueEnumerable()
                                          .Where(item => item != null &&
                                                         item.Trigger != UINavigationTriggerKind.TimeDelay &&
+                                                        !(item.Trigger == UINavigationTriggerKind.Signal &&
+                                                          item.SignalAddressKind == UINavigationSignalAddressKind.Custom) &&
                                                         item.Key.IsValid))
                             {
                                 usages.Add(new UIKeyUsage(
@@ -313,9 +330,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                                     path,
                                     output.Trigger switch
                                     {
-                                        UINavigationTriggerKind.UIButton or
-                                            UINavigationTriggerKind.Toggle =>
-                                            UIKeyUsageKind.Button,
+                                        UINavigationTriggerKind.Toggle =>
+                                            UIKeyUsageKind.Toggle,
                                         UINavigationTriggerKind.UIView =>
                                             UIKeyUsageKind.View,
                                         _ => UIKeyUsageKind.Signal
@@ -402,13 +418,13 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 {
                     categoryAttribute = "signal-category";
                     keyAttribute = "signal-key";
-                    elementKind = UIKeyCatalogKind.Button;
+                    elementKind = UIKeyCatalogKind.Signal;
                 }
                 else if (element.LocalName == "NavToggle")
                 {
                     categoryAttribute = "toggle-category";
                     keyAttribute = "toggle-key";
-                    elementKind = UIKeyCatalogKind.Button;
+                    elementKind = UIKeyCatalogKind.Toggle;
                 }
                 else
                 {
@@ -442,13 +458,35 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             bool changed = false;
             foreach (INode node in graph.GetNodes())
             {
-                if (node is UINavigationPortalNode portal)
+                if (node is UINavigationSendSignalNode destination)
+                {
+                    if (targetKind != UIKeyCatalogKind.Signal)
+                        continue;
+
+                    UINavigationSignalAddress address = destination.GetAddress();
+                    if (address.Kind != UINavigationSignalAddressKind.Database ||
+                        !matches(address.DatabaseSignal))
+                    {
+                        continue;
+                    }
+
+                    INodeOption option = destination.GetNodeOptionByName(
+                        UINavigationSendSignalNode.AddressOption);
+                    address.SetDatabaseSignal(replace(address.DatabaseSignal));
+                    changed |= TrySetOptionValue(option, address);
+                }
+                else if (node is UINavigationPortalNode portal)
                 {
                     UINavigationPortalCondition condition = portal.GetCondition();
+                    if (condition.RuntimeTriggerKind == UINavigationTriggerKind.Signal &&
+                        condition.SignalAddressKind == UINavigationSignalAddressKind.Custom)
+                    {
+                        continue;
+                    }
                     UIKeyCatalogKind portalKind =
                         condition.RuntimeTriggerKind is
-                            UINavigationTriggerKind.UIButton or UINavigationTriggerKind.Toggle
-                            ? UIKeyCatalogKind.Button
+                            UINavigationTriggerKind.Toggle
+                            ? UIKeyCatalogKind.Toggle
                             : UIKeyCatalogKind.Signal;
                     if (portalKind != targetKind)
                         continue;
@@ -485,11 +523,12 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                     {
                         if (output == null ||
                             output.Trigger == UINavigationTriggerKind.TimeDelay ||
+                            (output.Trigger == UINavigationTriggerKind.Signal &&
+                             output.SignalAddressKind == UINavigationSignalAddressKind.Custom) ||
                             (output.Trigger switch
                             {
-                                UINavigationTriggerKind.UIButton or
-                                    UINavigationTriggerKind.Toggle =>
-                                    UIKeyCatalogKind.Button,
+                                UINavigationTriggerKind.Toggle =>
+                                    UIKeyCatalogKind.Toggle,
                                 UINavigationTriggerKind.UIView =>
                                     UIKeyCatalogKind.View,
                                 _ => UIKeyCatalogKind.Signal

@@ -79,8 +79,8 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         {
             UINavigationService service = CreateTwoNodeService();
             int viewEvents = 0;
-            service.ShowRequested += _ => viewEvents++;
-            service.HideRequested += _ => viewEvents++;
+            service.ShowCommandsRequested += _ => viewEvents++;
+            service.HideCommandsRequested += _ => viewEvents++;
 
             Assert.IsFalse(service.Back());
             Assert.AreEqual(0, viewEvents);
@@ -132,9 +132,9 @@ namespace NKStudio.UITKNavigation.Editor.Tests
                     UIViewTransitionMode.Animated);
             UINavigationService service = new UINavigationService(_builder.Build());
 
-            UIKey[] resync = null;
-            UINavigationViewCommand[] show = null;
-            service.ResyncRequested += ids => resync = ids;
+            IReadOnlyList<UIKey> resync = null;
+            IReadOnlyList<UINavigationViewCommand> show = null;
+            service.ResyncViewsRequested += ids => resync = ids;
             service.ShowCommandsRequested += commands => show = commands;
 
             service.Initialize();
@@ -142,7 +142,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             Assert.IsNotNull(resync);
             Assert.IsEmpty(resync);
             Assert.IsNotNull(show);
-            Assert.AreEqual(1, show.Length);
+            Assert.AreEqual(1, show.Count);
             Assert.AreEqual(mainId, show[0].View);
             Assert.AreEqual(UIViewTransitionMode.Animated, show[0].Mode);
         }
@@ -156,15 +156,19 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             UINavigationService service = new UINavigationService(_builder.Build());
             service.Initialize();
 
-            UIKey[] show = null;
-            UIKey[] hide = null;
-            service.ShowRequested += ids => show = ids;
-            service.HideRequested += ids => hide = ids;
+            IReadOnlyList<UINavigationViewCommand> show = null;
+            IReadOnlyList<UINavigationViewCommand> hide = null;
+            service.ShowCommandsRequested += commands => show = commands;
+            service.HideCommandsRequested += commands => hide = commands;
 
             service.GoTo("B");
 
-            CollectionAssert.Contains(show, shared);
-            CollectionAssert.DoesNotContain(hide, shared);
+            CollectionAssert.Contains(
+                show.AsValueEnumerable().Select(command => command.View).ToArray(),
+                shared);
+            CollectionAssert.DoesNotContain(
+                hide.AsValueEnumerable().Select(command => command.View).ToArray(),
+                shared);
         }
 
         [Test]
@@ -174,8 +178,8 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             List<string> order = new List<string>();
 
             service.NodeChanging += _ => order.Add("changing");
-            service.HideRequested += _ => order.Add("hide");
-            service.ShowRequested += _ => order.Add("show");
+            service.HideCommandsRequested += _ => order.Add("hide");
+            service.ShowCommandsRequested += _ => order.Add("show");
             service.NodeChanged += _ => order.Add("changed");
 
             service.GoTo("B");
@@ -190,8 +194,8 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             service.NodeChanging += change => change.Cancel = true;
 
             int viewEvents = 0;
-            service.ShowRequested += _ => viewEvents++;
-            service.HideRequested += _ => viewEvents++;
+            service.ShowCommandsRequested += _ => viewEvents++;
+            service.HideCommandsRequested += _ => viewEvents++;
 
             Assert.IsFalse(service.GoTo("B"));
             Assert.AreEqual("A", service.ActiveNode.Id);
@@ -200,7 +204,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         }
 
         [Test]
-        public void EmittedArrays_AreCopiesNotTheNodeBackingLists()
+        public void CommandBuffers_AreReusedWithoutAliasingNodeData()
         {
             UIKey viewId = _builder.CreateViewId("View");
             _builder.AddNode("A");
@@ -210,15 +214,25 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             UINavigationService service = new UINavigationService(asset);
             service.Initialize();
 
-            UIKey[] captured = null;
-            service.ShowRequested += ids => captured = ids;
+            IReadOnlyList<UINavigationViewCommand> first = null;
+            IReadOnlyList<UINavigationViewCommand> second = null;
+            int eventCount = 0;
+            service.ShowCommandsRequested += commands =>
+            {
+                if (eventCount++ == 0)
+                    first = commands;
+                else
+                    second = commands;
+            };
             service.GoTo("B");
 
-            Assert.AreEqual(1, captured.Length);
-            captured[0] = default;
+            Assert.AreEqual(1, first.Count);
+            Assert.AreEqual(viewId, first[0].View);
+            service.GoTo("A");
+            Assert.AreSame(first, second, "전환 결과 버퍼는 서비스 수명 동안 재사용되어야 한다.");
 
             asset.TryGetNode("B", out UINavigationNode node);
-            Assert.AreEqual(viewId, node.ShowOnEnter[0], "구독자가 배열을 고쳐도 노드 데이터는 그대로여야 한다.");
+            Assert.AreEqual(viewId, node.ShowOnEnter[0], "명령 버퍼는 노드 데이터와 별도로 유지되어야 한다.");
         }
 
         [Test]
@@ -292,7 +306,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         }
 
         [Test]
-        public void TriggerButton_WithBackKey_PopsHistoryStack()
+        public void Trigger_WithBackKey_PopsHistoryStack()
         {
             _builder.AddNode("A").AddNode("B");
             _builder.AddTransition("A", "ToB", "B", UINavigationTransitionKind.Push);
@@ -304,7 +318,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             Assert.AreEqual("B", service.ActiveNode.Id);
             Assert.AreEqual(1, service.BackStack.Count);
 
-            bool success = service.TriggerButton(new UIKey("Demo", "Back"));
+            bool success = service.Trigger(new UIKey("Demo", "Back"));
             Assert.IsTrue(success);
             Assert.AreEqual("A", service.ActiveNode.Id);
             Assert.AreEqual(0, service.BackStack.Count);
@@ -315,7 +329,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         {
             _builder.AddNode("A").AddNode("B");
             _builder.AddTransition("A", "ToB", "B", UINavigationTransitionKind.Push);
-            _builder.AddOutput("B", UINavigationTriggerKind.UIButton, "Back", 0f, false, null, UINavigationTransitionKind.Back);
+            _builder.AddOutput("B", UINavigationTriggerKind.Signal, "Back", 0f, false, null, UINavigationTransitionKind.Back);
 
             UINavigationService service = new UINavigationService(_builder.Build());
             service.Initialize();
@@ -324,7 +338,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             Assert.AreEqual("B", service.ActiveNode.Id);
             Assert.AreEqual(1, service.BackStack.Count);
 
-            bool success = service.TriggerButton(new UIKey("Demo", "Back"));
+            bool success = service.Trigger(new UIKey("Demo", "Back"));
             Assert.IsTrue(success);
             Assert.AreEqual("A", service.ActiveNode.Id);
             Assert.AreEqual(0, service.BackStack.Count);
@@ -490,6 +504,56 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         }
 
         [Test]
+        public void AutomaticTransitionBuffers_GrowOnceAndAreReused()
+        {
+            _builder.AddNode("A").AddNode("B").AddNode("C");
+            _builder.AddOutput(
+                "A",
+                UINavigationTriggerKind.TimeDelay,
+                string.Empty,
+                10f,
+                false,
+                "B");
+            _builder.AddOutput(
+                "B",
+                UINavigationTriggerKind.TimeDelay,
+                string.Empty,
+                10f,
+                false,
+                "A");
+            _builder.AddOutput(
+                "B",
+                UINavigationTriggerKind.Random,
+                string.Empty,
+                0f,
+                false,
+                "C");
+
+            UINavigationService service = new UINavigationService(_builder.Build());
+            service.Initialize();
+            service.GoTo("B");
+
+            float[] remaining = GetDelayBuffer<float>(service, "_delayRemaining");
+            bool[] consumed = GetDelayBuffer<bool>(service, "_delayConsumed");
+            Assert.That(remaining.Length, Is.GreaterThanOrEqualTo(2));
+            Assert.That(consumed.Length, Is.EqualTo(remaining.Length));
+
+            service.GoTo("C");
+            Assert.IsFalse(service.Tick(1f), "자동 전이가 없는 노드는 Tick에서 즉시 종료되어야 한다.");
+            service.GoTo("B");
+
+            Assert.AreSame(remaining, GetDelayBuffer<float>(service, "_delayRemaining"));
+            Assert.AreSame(consumed, GetDelayBuffer<bool>(service, "_delayConsumed"));
+        }
+
+        private static T[] GetDelayBuffer<T>(UINavigationService service, string fieldName)
+        {
+            return (T[])typeof(UINavigationService)
+                .GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(service);
+        }
+
+        [Test]
         public void Toggle_OnlyRunsMatchingChangedValueBranch()
         {
             _builder.AddNode("A").AddNode("True").AddNode("False");
@@ -561,12 +625,12 @@ namespace NKStudio.UITKNavigation.Editor.Tests
 
             UINavigationService service = new UINavigationService(_builder.Build());
             service.Initialize();
-            UINavigationViewCommand[] captured = null;
+            IReadOnlyList<UINavigationViewCommand> captured = null;
             service.ShowCommandsRequested += commands => captured = commands;
 
             service.GoTo("B");
 
-            Assert.AreEqual(1, captured.Length);
+            Assert.AreEqual(1, captured.Count);
             Assert.AreEqual(shared, captured[0].View);
             Assert.AreEqual(UIViewTransitionMode.Animated, captured[0].Mode);
         }
@@ -638,7 +702,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             service.Initialize();
             service.ShowCommandsRequested += commands =>
             {
-                for (int i = 0; i < commands.Length; i++)
+                for (int i = 0; i < commands.Count; i++)
                 {
                     if (commands[i].View == panel &&
                         commands[i].Mode == UIViewTransitionMode.Animated)
@@ -689,6 +753,69 @@ namespace NKStudio.UITKNavigation.Editor.Tests
                 Object.DestroyImmediate(secondObject);
                 Object.DestroyImmediate(firstObject);
             }
+        }
+
+        [Test]
+        public void CustomSignal_NavigatesFromEveryConfiguredSourceOnly()
+        {
+            _builder
+                .AddNode("A")
+                .AddNode("B")
+                .AddNode("C")
+                .AddNode("Home")
+                .AddCustomTransition("Home", "Home", "A", "B");
+
+            UINavigationService service = new UINavigationService(_builder.Build());
+            service.Initialize();
+
+            Assert.IsTrue(service.Trigger("Home"));
+            Assert.AreEqual("Home", service.ActiveNode.Id);
+
+            Assert.IsTrue(service.Back());
+            Assert.IsTrue(service.GoTo("B"));
+            Assert.IsTrue(service.Trigger("Home"));
+            Assert.AreEqual("Home", service.ActiveNode.Id);
+
+            Assert.IsTrue(service.GoTo("C"));
+            Assert.IsFalse(service.Trigger("Home"));
+            Assert.AreEqual("C", service.ActiveNode.Id);
+        }
+
+        [Test]
+        public void CustomSignal_IsOrdinalAndRejectsMissingOrEmptyKeys()
+        {
+            _builder
+                .AddNode("A")
+                .AddNode("Home")
+                .AddCustomTransition("Home", "Home", "A");
+
+            UINavigationService service = new UINavigationService(_builder.Build());
+            service.Initialize();
+
+            Assert.IsFalse(service.Trigger(string.Empty));
+            Assert.IsFalse(service.Trigger("home"));
+            Assert.IsFalse(service.Trigger("Missing"));
+            Assert.AreEqual("A", service.ActiveNode.Id);
+        }
+
+        [Test]
+        public void DatabaseSignal_UsesExistingUIKeySignalPath()
+        {
+            UIKey home = new UIKey("Global", "Home");
+            _builder
+                .AddNode("A")
+                .AddNode("Home")
+                .AddTransition(
+                    "A",
+                    home,
+                    "Home",
+                    UINavigationTransitionKind.Push);
+
+            UINavigationService service = new UINavigationService(_builder.Build());
+            service.Initialize();
+
+            Assert.IsTrue(service.Trigger(home));
+            Assert.AreEqual("Home", service.ActiveNode.Id);
         }
 
         private UINavigationService CreateTwoNodeService()

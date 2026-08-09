@@ -64,6 +64,17 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             return this;
         }
 
+        public TestNavigationGraphBuilder AddTransition(
+            string fromNodeId,
+            UIKey signal,
+            string targetNodeId,
+            UINavigationTransitionKind kind)
+        {
+            _transitions[fromNodeId].Add(
+                new UINavigationTransition(signal, targetNodeId, kind));
+            return this;
+        }
+
         public TestNavigationGraphBuilder AddOutput(
             string fromNodeId,
             UINavigationTriggerKind trigger,
@@ -128,6 +139,29 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             return this;
         }
 
+        public TestNavigationGraphBuilder AddCustomTransition(
+            string key,
+            string targetNodeId,
+            params string[] sourceNodeIds)
+        {
+            foreach (string sourceNodeId in sourceNodeIds)
+            {
+                _transitions[sourceNodeId].Add(new UINavigationTransition(
+                    UINavigationTriggerKind.Signal,
+                    default,
+                    key,
+                    0f,
+                    UIToggleOutputCondition.On,
+                    UIViewOutputCondition.Show,
+                    100f,
+                    targetNodeId,
+                    UINavigationTransitionKind.Push,
+                    System.Array.Empty<UINavigationAction>()));
+            }
+
+            return this;
+        }
+
         /// <summary>
         /// Adds v ie w.
         /// </summary>
@@ -174,7 +208,10 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             }
 
             UINavigationAsset asset = ScriptableObject.CreateInstance<UINavigationAsset>();
-            asset.SetContents(_startNodeId, _nodes.ToArray(), _portals.ToArray());
+            asset.SetContents(
+                _startNodeId,
+                _nodes.ToArray(),
+                _portals.ToArray());
             _created.Add(asset);
             return asset;
         }

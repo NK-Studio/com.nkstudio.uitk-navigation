@@ -44,7 +44,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             SerializedProperty owner,
             SerializedProperty category,
             SerializedProperty key,
-            Func<UIKeyCatalogKind> kindGetter = null)
+            Func<UIKeyCatalogKind> kindGetter = null,
+            bool graphInspectorLayout = false)
         {
             return new UIKeyPickerField(
                 label,
@@ -56,7 +57,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                     owner.serializedObject.ApplyModifiedProperties();
                 },
                 kindGetter,
-                owner);
+                owner,
+                graphInspectorLayout);
         }
     }
 
@@ -198,27 +200,45 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         {
             SerializedProperty trigger = property.FindPropertyRelative("trigger");
             SerializedProperty key = property.FindPropertyRelative("key");
+            SerializedProperty signalAddressKind =
+                property.FindPropertyRelative("signalAddressKind");
+            SerializedProperty customSignal =
+                property.FindPropertyRelative("customSignal");
             SerializedProperty delay = property.FindPropertyRelative("delaySeconds");
             SerializedProperty toggle = property.FindPropertyRelative("toggleCondition");
             SerializedProperty view = property.FindPropertyRelative("viewCondition");
 
             var root = new VisualElement();
             var triggerField = new PropertyField(trigger, "Trigger");
+            var signalAddressKindField =
+                new PropertyField(signalAddressKind, "Signal Address");
             var keyField = new PropertyField(key, "Address");
+            var customSignalField = new PropertyField(customSignal, "Custom Signal");
             var delayField = new PropertyField(delay, "Seconds");
             var toggleField = new PropertyField(toggle, "State");
             var viewField = new PropertyField(view, "State");
             root.Add(triggerField);
             root.Add(toggleField);
             root.Add(viewField);
+            root.Add(signalAddressKindField);
+            root.Add(customSignalField);
             root.Add(keyField);
             root.Add(delayField);
 
             void Refresh()
             {
-                var kind = (UINavigationTriggerKind)trigger.enumValueIndex;
+                var kind = UINavigationTriggerKindUtility.Normalize(
+                    (UINavigationTriggerKind)trigger.intValue);
+                bool signal = kind == UINavigationTriggerKind.Signal;
+                bool custom = signal &&
+                    (UINavigationSignalAddressKind)signalAddressKind.intValue ==
+                    UINavigationSignalAddressKind.Custom;
+                signalAddressKindField.style.display =
+                    signal ? DisplayStyle.Flex : DisplayStyle.None;
+                customSignalField.style.display =
+                    custom ? DisplayStyle.Flex : DisplayStyle.None;
                 keyField.style.display =
-                    kind == UINavigationTriggerKind.TimeDelay
+                    kind == UINavigationTriggerKind.TimeDelay || custom
                         ? DisplayStyle.None
                         : DisplayStyle.Flex;
                 delayField.style.display =
@@ -236,6 +256,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             }
 
             triggerField.TrackPropertyValue(trigger, _ => Refresh());
+            signalAddressKindField.TrackPropertyValue(signalAddressKind, _ => Refresh());
             Refresh();
             return root;
         }
@@ -459,6 +480,172 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         }
     }
 
+    [CustomPropertyDrawer(typeof(UINavigationSignalAddress))]
+    internal sealed class UINavigationSignalAddressDrawer : PropertyDrawer
+    {
+        public override VisualElement CreatePropertyGUI(SerializedProperty property)
+        {
+            SerializedProperty kind = property.FindPropertyRelative("kind");
+            SerializedProperty customSignal =
+                property.FindPropertyRelative("customSignal");
+            SerializedProperty databaseSignal =
+                property.FindPropertyRelative("databaseSignal");
+
+            var root = new VisualElement();
+            root.AddToClassList("uinavigation-phase");
+            root.AddToClassList("uinavigation-destination-phase");
+            UINavigationListDrawerUtility.AttachGraphInspectorStyles(root);
+
+            var titleRow = new VisualElement();
+            titleRow.AddToClassList("uinavigation-phase__header");
+
+            var iconBox = new VisualElement();
+            iconBox.AddToClassList("uinavigation-phase__icon-box");
+
+            var icon = new VisualElement();
+            icon.AddToClassList("uinavigation-phase__icon");
+            icon.tooltip = "Send Signal";
+            icon.style.backgroundImage = new StyleBackground(
+                AssetDatabase.LoadAssetAtPath<VectorImage>(
+                    "Packages/com.nkstudio.uitk-navigation/Editor/Assets/NodeOutputIcon.svg"));
+            icon.style.height = 16;
+            iconBox.Add(icon);
+            titleRow.Add(iconBox);
+
+            var title = new Label("Send Signal");
+            title.AddToClassList("uinavigation-phase__title");
+            titleRow.Add(title);
+            root.Add(titleRow);
+
+            var body = new VisualElement();
+            body.AddToClassList("uinavigation-phase__body");
+
+            var kindField = new EnumField(
+                "Address Type",
+                (UINavigationSignalAddressKind)kind.intValue);
+            var customField = new TextField("Custom Signal")
+            {
+                value = customSignal.stringValue,
+                isDelayed = true
+            };
+            UIKeyPickerField databaseField = UIKeyPropertyDrawer.CreateField(
+                "Database Signal",
+                databaseSignal,
+                databaseSignal.FindPropertyRelative("category"),
+                databaseSignal.FindPropertyRelative("key"),
+                () => UIKeyCatalogKind.Signal,
+                graphInspectorLayout: true);
+            body.Add(kindField);
+            body.Add(customField);
+            body.Add(databaseField);
+            root.Add(body);
+
+            MatchInputBoundsToNodeOption(root, kindField);
+            MatchInputBoundsToNodeOption(root, customField);
+
+            void Refresh()
+            {
+                bool custom =
+                    (UINavigationSignalAddressKind)kind.intValue ==
+                    UINavigationSignalAddressKind.Custom;
+                customField.style.display =
+                    custom ? DisplayStyle.Flex : DisplayStyle.None;
+                databaseField.style.display =
+                    custom ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            kindField.RegisterValueChangedCallback(evt =>
+            {
+                kind.intValue = (int)(UINavigationSignalAddressKind)evt.newValue;
+                property.serializedObject.ApplyModifiedProperties();
+                Refresh();
+            });
+            customField.RegisterValueChangedCallback(evt =>
+            {
+                customSignal.stringValue = evt.newValue;
+                property.serializedObject.ApplyModifiedProperties();
+            });
+            Refresh();
+            return root;
+        }
+
+        internal static void MatchInputBoundsToNodeOption(
+            VisualElement owner,
+            VisualElement field)
+        {
+            VisualElement input = field.Q<VisualElement>(
+                className: "unity-base-field__input");
+            VisualElement referenceInput = null;
+
+            void ResolveReferenceInput()
+            {
+                VisualElement panelRoot = field.panel?.visualTree;
+                if (panelRoot == null)
+                {
+                    referenceInput = null;
+                    return;
+                }
+
+                Label referenceLabel = panelRoot
+                    .Query<Label>(className: "ge-model-property-field__label")
+                    .Where(candidate =>
+                        candidate != null &&
+                        !owner.Contains(candidate) &&
+                        candidate.parent?.Q<VisualElement>(
+                            className: "unity-base-field__input") != null)
+                    .Build()
+                    .First();
+                referenceInput = referenceLabel?.parent?.Q<VisualElement>(
+                    className: "unity-base-field__input");
+            }
+
+            void Apply()
+            {
+                if (input == null ||
+                    input.worldBound.width <= 0f)
+                {
+                    return;
+                }
+
+                if (referenceInput == null ||
+                    referenceInput.panel != field.panel)
+                {
+                    ResolveReferenceInput();
+                }
+
+                if (referenceInput == null ||
+                    referenceInput.worldBound.width <= 0f)
+                {
+                    return;
+                }
+
+                float leftOffset =
+                    referenceInput.worldBound.xMin - input.worldBound.xMin;
+                float rightOffset =
+                    input.worldBound.xMax - referenceInput.worldBound.xMax;
+                if (Mathf.Abs(leftOffset) <= 0.25f &&
+                    Mathf.Abs(rightOffset) <= 0.25f)
+                {
+                    return;
+                }
+
+                input.style.marginLeft =
+                    input.resolvedStyle.marginLeft + leftOffset;
+                input.style.marginRight =
+                    input.resolvedStyle.marginRight + rightOffset;
+            }
+
+            field.RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                ResolveReferenceInput();
+                Apply();
+            });
+            field.RegisterCallback<DetachFromPanelEvent>(_ =>
+                referenceInput = null);
+            field.RegisterCallback<GeometryChangedEvent>(_ => Apply());
+        }
+    }
+
     [CustomPropertyDrawer(typeof(UINavigationPortalCondition))]
     internal sealed class UINavigationPortalConditionDrawer : PropertyDrawer
     {
@@ -466,6 +653,10 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         {
             SerializedProperty kind = property.FindPropertyRelative("kind");
             SerializedProperty key = property.FindPropertyRelative("key");
+            SerializedProperty signalAddressKind =
+                property.FindPropertyRelative("signalAddressKind");
+            SerializedProperty customSignal =
+                property.FindPropertyRelative("customSignal");
             SerializedProperty toggleValue = property.FindPropertyRelative("toggleValue");
 
             var root = new VisualElement();
@@ -498,9 +689,21 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             body.AddToClassList("uinavigation-phase__body");
 
             var kindField = new EnumField(
-                (UINavigationPortalConditionKind)kind.enumValueIndex);
+                (UINavigationPortalConditionKind)kind.intValue);
             kindField.label = "Type";
             body.Add(kindField);
+
+            var addressKindField = new EnumField(
+                "Signal Address",
+                (UINavigationSignalAddressKind)signalAddressKind.intValue);
+            body.Add(addressKindField);
+
+            var customSignalField = new TextField("Custom Signal")
+            {
+                value = customSignal.stringValue,
+                isDelayed = true
+            };
+            body.Add(customSignalField);
 
             UIKeyPickerField keyField = UIKeyPropertyDrawer.CreateField(
                 "Key",
@@ -508,7 +711,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 key.FindPropertyRelative("category"),
                 key.FindPropertyRelative("key"),
                 () => GetKind(
-                    (UINavigationPortalConditionKind)kind.enumValueIndex));
+                    (UINavigationPortalConditionKind)kind.intValue),
+                graphInspectorLayout: true);
             body.Add(keyField);
 
             var toggleField = new Toggle("Expected Value")
@@ -517,10 +721,35 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             };
             body.Add(toggleField);
 
+            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+                root,
+                kindField);
+            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+                root,
+                addressKindField);
+            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+                root,
+                customSignalField);
+            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+                root,
+                toggleField);
+
             void Refresh()
             {
+                bool signal =
+                    (UINavigationPortalConditionKind)kind.intValue ==
+                    UINavigationPortalConditionKind.Signal;
+                bool custom = signal &&
+                    (UINavigationSignalAddressKind)signalAddressKind.intValue ==
+                    UINavigationSignalAddressKind.Custom;
+                addressKindField.style.display =
+                    signal ? DisplayStyle.Flex : DisplayStyle.None;
+                customSignalField.style.display =
+                    custom ? DisplayStyle.Flex : DisplayStyle.None;
+                keyField.style.display =
+                    custom ? DisplayStyle.None : DisplayStyle.Flex;
                 toggleField.style.display =
-                    (UINavigationPortalConditionKind)kind.enumValueIndex ==
+                    (UINavigationPortalConditionKind)kind.intValue ==
                     UINavigationPortalConditionKind.Toggle
                         ? DisplayStyle.Flex
                         : DisplayStyle.None;
@@ -529,10 +758,22 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
             kindField.RegisterValueChangedCallback(evt =>
             {
-                kind.enumValueIndex =
+                kind.intValue =
                     (int)(UINavigationPortalConditionKind)evt.newValue;
                 property.serializedObject.ApplyModifiedProperties();
                 Refresh();
+            });
+            addressKindField.RegisterValueChangedCallback(evt =>
+            {
+                signalAddressKind.intValue =
+                    (int)(UINavigationSignalAddressKind)evt.newValue;
+                property.serializedObject.ApplyModifiedProperties();
+                Refresh();
+            });
+            customSignalField.RegisterValueChangedCallback(evt =>
+            {
+                customSignal.stringValue = evt.newValue;
+                property.serializedObject.ApplyModifiedProperties();
             });
             toggleField.RegisterValueChangedCallback(evt =>
             {
@@ -547,9 +788,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
         private static UIKeyCatalogKind GetKind(UINavigationPortalConditionKind kind)
         {
-            return kind is UINavigationPortalConditionKind.UIButton or
-                UINavigationPortalConditionKind.Toggle
-                ? UIKeyCatalogKind.Button
+            return kind == UINavigationPortalConditionKind.Toggle
+                ? UIKeyCatalogKind.Toggle
                 : UIKeyCatalogKind.Signal;
         }
     }
@@ -647,7 +887,6 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                     {
                         UINavigationTriggerKind.TimeDelay,
                         UINavigationTriggerKind.Signal,
-                        UINavigationTriggerKind.UIButton,
                         UINavigationTriggerKind.Toggle,
                         UINavigationTriggerKind.UIView
                     };
@@ -655,7 +894,6 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                     {
                         "TimeDelay",
                         "Signal",
-                        "UIButton",
                         "UIToggle",
                         "UI View"
                     };
@@ -676,7 +914,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
                     int triggerIndex = Array.IndexOf(
                         triggerKinds,
-                        (UINavigationTriggerKind)trigger.enumValueIndex);
+                        UINavigationTriggerKindUtility.Normalize(
+                            (UINavigationTriggerKind)trigger.intValue));
                     var triggerField = new DropdownField(
                         triggerNames,
                         Mathf.Max(0, triggerIndex));
@@ -711,7 +950,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                         key.FindPropertyRelative("category"),
                         key.FindPropertyRelative("key"),
                         () => GetCatalogKind(
-                            (UINavigationTriggerKind)trigger.enumValueIndex),
+                            UINavigationTriggerKindUtility.Normalize(
+                                (UINavigationTriggerKind)trigger.intValue)),
                         out Action refreshAddress);
                     address.AddToClassList("uinavigation-output-card__address");
                     fields.Add(address);
@@ -730,12 +970,12 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
                     void RefreshTrigger()
                     {
-                        var kind = (UINavigationTriggerKind)trigger.enumValueIndex;
+                        var kind = UINavigationTriggerKindUtility.Normalize(
+                            (UINavigationTriggerKind)trigger.intValue);
                         kindIcon.text = kind switch
                         {
                             UINavigationTriggerKind.TimeDelay => "T",
                             UINavigationTriggerKind.Signal => "S",
-                            UINavigationTriggerKind.UIButton => "B",
                             UINavigationTriggerKind.Toggle => "T",
                             UINavigationTriggerKind.UIView => "V",
                             _ => string.Empty
@@ -766,7 +1006,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                             triggerField.index,
                             0,
                             triggerKinds.Length - 1);
-                        trigger.enumValueIndex = (int)triggerKinds[selected];
+                        trigger.intValue = (int)triggerKinds[selected];
                         trigger.serializedObject.ApplyModifiedProperties();
                         RefreshTrigger();
                     });
@@ -795,8 +1035,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 {
                     element.FindPropertyRelative("outputId").stringValue =
                         Guid.NewGuid().ToString("N");
-                    element.FindPropertyRelative("trigger").enumValueIndex =
-                        (int)UINavigationTriggerKind.UIButton;
+                    element.FindPropertyRelative("trigger").intValue =
+                        (int)UINavigationTriggerKind.Signal;
                     SerializedProperty key = element.FindPropertyRelative("key");
                     key.FindPropertyRelative("category").stringValue = "Default";
                     key.FindPropertyRelative("key").stringValue = "Next";
@@ -1094,7 +1334,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 {
                     SerializedProperty trigger = element.FindPropertyRelative("trigger");
                     if (trigger != null)
-                        trigger.enumValueIndex = variant;
+                        trigger.intValue = variant;
                 }
                 array.serializedObject.ApplyModifiedProperties();
                 Refresh();
@@ -1135,8 +1375,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         {
             return trigger switch
             {
-                UINavigationTriggerKind.UIButton => UIKeyCatalogKind.Button,
-                UINavigationTriggerKind.Toggle => UIKeyCatalogKind.Button,
+                UINavigationTriggerKind.Toggle => UIKeyCatalogKind.Toggle,
                 UINavigationTriggerKind.UIView => UIKeyCatalogKind.View,
                 _ => UIKeyCatalogKind.Signal
             };
@@ -1157,10 +1396,6 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                     new GUIContent("Signal"),
                     false,
                     () => addItem((int)UINavigationTriggerKind.Signal));
-                menu.AddItem(
-                    new GUIContent("UIButton"),
-                    false,
-                    () => addItem((int)UINavigationTriggerKind.UIButton));
                 menu.AddItem(
                     new GUIContent("UIToggle"),
                     false,

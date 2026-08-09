@@ -8,11 +8,11 @@ namespace NKStudio.UITKNavigation.Identity
     public enum UIKeyCatalogKind
     {
         /// <summary>Selects registered view identifiers.</summary>
-        View,
-        /// <summary>Selects button or toggle identifiers.</summary>
-        Button,
+        View = 0,
+        /// <summary>Selects toggle identifiers.</summary>
+        Toggle = 1,
         /// <summary>Selects general navigation signal identifiers.</summary>
-        Signal
+        Signal = 2
     }
 
     /// <summary>

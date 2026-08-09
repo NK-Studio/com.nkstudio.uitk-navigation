@@ -54,6 +54,18 @@ namespace NKStudio.UITKNavigation.Navigation
         [SerializeField]
         private UINavigationTransition[] transitions = Array.Empty<UINavigationTransition>();
 
+        [SerializeField]
+        private bool destination;
+
+        [SerializeField]
+        private UINavigationSignalAddressKind destinationAddressKind;
+
+        [SerializeField]
+        private UIKey destinationSignal;
+
+        [SerializeField]
+        private string destinationCustomSignal;
+
         public UINavigationNode(
             string id,
             string displayName,
@@ -82,6 +94,12 @@ namespace NKStudio.UITKNavigation.Navigation
         public IReadOnlyList<UINavigationViewCommand> ShowOnExitCommands => showOnExitCommands;
         public IReadOnlyList<UINavigationViewCommand> HideOnExitCommands => hideOnExitCommands;
         public IReadOnlyList<UINavigationTransition> Transitions => transitions;
+        internal bool IsDestination => destination;
+        internal UINavigationSignalAddressKind DestinationAddressKind =>
+            destinationAddressKind;
+        internal UIKey DestinationSignal => destinationSignal;
+        internal string DestinationCustomSignal =>
+            destinationCustomSignal ?? string.Empty;
 
         public bool TryGetTransition(
             UINavigationTriggerKind triggerKind,
@@ -112,6 +130,32 @@ namespace NKStudio.UITKNavigation.Navigation
                 UINavigationTriggerKind.Signal,
                 signal,
                 out transition);
+        }
+
+        public bool TryGetTransition(
+            string customSignal,
+            out UINavigationTransition transition)
+        {
+            if (!string.IsNullOrEmpty(customSignal))
+            {
+                for (int i = 0; i < transitions.Length; i++)
+                {
+                    UINavigationTransition candidate = transitions[i];
+                    if (candidate != null &&
+                        candidate.TriggerKind == UINavigationTriggerKind.Signal &&
+                        string.Equals(
+                            candidate.CustomSignal,
+                            customSignal,
+                            StringComparison.Ordinal))
+                    {
+                        transition = candidate;
+                        return true;
+                    }
+                }
+            }
+
+            transition = null;
+            return false;
         }
 
         public bool TryGetToggleTransition(
@@ -207,6 +251,17 @@ namespace NKStudio.UITKNavigation.Navigation
             showOnExit = ToKeys(showOnExitCommands);
             hideOnExit = ToKeys(hideOnExitCommands);
             transitions = nodeTransitions ?? Array.Empty<UINavigationTransition>();
+        }
+
+        internal void SetDestination(
+            UINavigationSignalAddressKind addressKind,
+            UIKey databaseSignal,
+            string customSignal)
+        {
+            destination = true;
+            destinationAddressKind = addressKind;
+            destinationSignal = databaseSignal;
+            destinationCustomSignal = customSignal ?? string.Empty;
         }
 
         private static UINavigationViewCommand[] ToCommands(UIKey[] keys)

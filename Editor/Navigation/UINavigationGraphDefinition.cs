@@ -38,6 +38,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         internal static readonly Color Start = new(0.24f, 0.59f, 0.26f);
         internal static readonly Color UI = new(0.21f, 0.40f, 0.59f);
         internal static readonly Color Portal = new(0.43f, 0.31f, 0.59f);
+        internal static readonly Color Destination = new(0.12f, 0.52f, 0.50f);
         internal static readonly Color Action = new(0.59f, 0.38f, 0.17f);
     }
 
@@ -198,10 +199,17 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         private string outputId = Guid.NewGuid().ToString("N");
 
         [SerializeField]
-        private UINavigationTriggerKind trigger = UINavigationTriggerKind.UIButton;
+        private UINavigationTriggerKind trigger = UINavigationTriggerKind.Signal;
 
         [SerializeField]
         private UIKey key = new("Default", "Next");
+
+        [SerializeField]
+        private UINavigationSignalAddressKind signalAddressKind =
+            UINavigationSignalAddressKind.Database;
+
+        [SerializeField]
+        private string customSignal = "Home";
 
         [SerializeField, Min(0f)]
         private float delaySeconds = 1f;
@@ -217,13 +225,29 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         private bool upgraded;
 
         internal string OutputId => outputId;
-        internal UINavigationTriggerKind Trigger => trigger;
+        internal UINavigationTriggerKind Trigger =>
+            UINavigationTriggerKindUtility.Normalize(trigger);
         internal UIKey Key => key;
+        internal UINavigationSignalAddressKind SignalAddressKind => signalAddressKind;
+        internal string CustomSignal => customSignal?.Trim() ?? string.Empty;
         internal float DelaySeconds => delaySeconds;
         internal UIToggleOutputCondition ToggleCondition => toggleCondition;
         internal UIViewOutputCondition ViewCondition => viewCondition;
         internal bool NeedsLegacyToggleSplit => !upgraded && trigger == UINavigationTriggerKind.Toggle;
         internal void SetKey(UIKey value) => key = value;
+
+        internal static UINavigationOutputDefinition CreateCustomSignal(string signal)
+        {
+            return new UINavigationOutputDefinition(
+                UINavigationTriggerKind.Signal,
+                default,
+                0f,
+                UINavigationTransitionKind.Push)
+            {
+                signalAddressKind = UINavigationSignalAddressKind.Custom,
+                customSignal = signal?.Trim() ?? string.Empty
+            };
+        }
 
         internal UINavigationOutputDefinition()
         {
@@ -251,7 +275,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             UIViewOutputCondition viewCondition)
         {
             outputId = Guid.NewGuid().ToString("N");
-            this.trigger = trigger;
+            this.trigger = UINavigationTriggerKindUtility.Normalize(trigger);
             this.key = key;
             this.delaySeconds = Mathf.Max(0f, delaySeconds);
             this.toggleCondition = toggleCondition;
@@ -308,6 +332,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         public void OnAfterDeserialize()
         {
             EnsureId();
+            trigger = UINavigationTriggerKindUtility.Normalize(trigger);
         }
 
         private void EnsureId()
@@ -575,7 +600,9 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                         AddOutputPort(
                             context,
                             output.GetPortName(),
-                            $"Signal · {FormatKey(output.Key, "Unassigned")}");
+                            output.SignalAddressKind == UINavigationSignalAddressKind.Custom
+                                ? $"Signal · {output.CustomSignal}"
+                                : $"Signal · {FormatKey(output.Key, "Unassigned")}");
                         break;
 
                     default:
@@ -635,38 +662,177 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         }
     }
 
+    [Serializable]
+    internal sealed class UINavigationSignalAddress
+    {
+        [SerializeField]
+        private UINavigationSignalAddressKind kind =
+            UINavigationSignalAddressKind.Custom;
+
+        [SerializeField]
+        private string customSignal = "Home";
+
+        [SerializeField]
+        private UIKey databaseSignal = new("Default", "Home");
+
+        internal UINavigationSignalAddressKind Kind => kind;
+        internal string CustomSignal => customSignal?.Trim() ?? string.Empty;
+        internal UIKey DatabaseSignal => databaseSignal;
+
+        internal UINavigationSignalAddress()
+        {
+        }
+
+        internal UINavigationSignalAddress(string signal)
+        {
+            kind = UINavigationSignalAddressKind.Custom;
+            customSignal = signal?.Trim() ?? string.Empty;
+        }
+
+        internal UINavigationSignalAddress(UIKey signal)
+        {
+            kind = UINavigationSignalAddressKind.Database;
+            databaseSignal = signal;
+        }
+
+        internal void SetDatabaseSignal(UIKey signal)
+        {
+            databaseSignal = signal;
+        }
+    }
+
+    [Node("UI Navigation/UI Manager", "", "Send Signal")]
+    [UseWithGraph(typeof(UINavigationAuthoringGraph))]
+    [Serializable]
+    internal sealed class UINavigationSendSignalNode : UINavigationUINodeBase
+    {
+        internal const string AddressOption = "destination";
+
+        internal UINavigationSignalAddress InitialAddress { get; set; } =
+            new UINavigationSignalAddress();
+
+        protected override bool UsesUseBackOption => false;
+
+        protected override bool UsesDisplayNameOption => false;
+
+        protected override void OnDefineOptions(IOptionDefinitionContext context)
+        {
+            context.AddOption<string>(DisplayNameOption)
+                .WithDisplayName("Display Name")
+                .WithDefaultValue(InitialDisplayName ?? string.Empty)
+                .ShowInInspectorOnly()
+                .Delayed()
+                .Build();
+
+            base.OnDefineOptions(context);
+        }
+
+        protected override void DefineViewOptions(IOptionDefinitionContext context)
+        {
+            context.AddOption<UINavigationSignalAddress>(AddressOption)
+                .WithDisplayName("Go To")
+                .WithTooltip("같은 Signal 주소를 가진 Portal이 연결한 UI로 이동합니다.")
+                .WithDefaultValue(InitialAddress ?? new UINavigationSignalAddress())
+                .ShowInInspectorOnly()
+                .Build();
+        }
+
+        protected override void OnDefinePorts(IPortDefinitionContext context)
+        {
+            string displayName = GetOptionValue(DisplayNameOption, string.Empty);
+            Title = string.IsNullOrWhiteSpace(displayName)
+                ? $"Send Signal - {FormatSignal(GetAddress())}"
+                : displayName.Trim();
+            DefaultColor = UINavigationNodeColors.Destination;
+
+            context.AddInputPort(EnterPort)
+                .WithDisplayName("Enter")
+                .WithTooltip("Signal, Time Delay 등 UI 전이 출력을 직접 연결합니다.")
+                .WithCapacity(PortCapacity.Multi)
+                .WithConnectorUI(PortConnectorUI.Arrowhead)
+                .Build();
+        }
+
+        internal UINavigationSignalAddress GetAddress()
+        {
+            return GetOptionValue(
+                       AddressOption,
+                       InitialAddress ?? new UINavigationSignalAddress()) ??
+                   new UINavigationSignalAddress();
+        }
+
+        private static string FormatSignal(UINavigationSignalAddress address)
+        {
+            if (address == null)
+                return "None";
+
+            if (address.Kind == UINavigationSignalAddressKind.Custom)
+            {
+                return string.IsNullOrWhiteSpace(address.CustomSignal)
+                    ? "None"
+                    : address.CustomSignal;
+            }
+
+            return address.DatabaseSignal.IsValid
+                ? address.DatabaseSignal.Key
+                : "None";
+        }
+    }
+
     internal enum UINavigationPortalConditionKind
     {
-        [InspectorName("UI Button")]
-        UIButton,
-        Signal,
-        Toggle
+        Signal = 1,
+        Toggle = 2
     }
 
     [Serializable]
-    internal sealed class UINavigationPortalCondition
+    internal sealed class UINavigationPortalCondition : ISerializationCallbackReceiver
     {
         [SerializeField]
         private UINavigationPortalConditionKind kind =
-            UINavigationPortalConditionKind.UIButton;
+            UINavigationPortalConditionKind.Signal;
 
         [SerializeField]
         private UIKey key = new("Default", "Portal");
 
         [SerializeField]
+        private UINavigationSignalAddressKind signalAddressKind =
+            UINavigationSignalAddressKind.Database;
+
+        [SerializeField]
+        private string customSignal = "Home";
+
+        [SerializeField]
         private bool toggleValue = true;
 
-        internal UINavigationPortalConditionKind Kind => kind;
+        internal UINavigationPortalConditionKind Kind =>
+            (int)kind == 0 ? UINavigationPortalConditionKind.Signal : kind;
         internal UIKey Key => key;
+        internal UINavigationSignalAddressKind SignalAddressKind => signalAddressKind;
+        internal string CustomSignal => customSignal?.Trim() ?? string.Empty;
         internal bool ToggleValue => toggleValue;
         internal void SetKey(UIKey value) => key = value;
-
-        internal UINavigationTriggerKind RuntimeTriggerKind => kind switch
+        internal void SetCustomSignal(string value)
         {
-            UINavigationPortalConditionKind.Signal => UINavigationTriggerKind.Signal,
+            signalAddressKind = UINavigationSignalAddressKind.Custom;
+            customSignal = value?.Trim() ?? string.Empty;
+        }
+
+        internal UINavigationTriggerKind RuntimeTriggerKind => Kind switch
+        {
             UINavigationPortalConditionKind.Toggle => UINavigationTriggerKind.Toggle,
-            _ => UINavigationTriggerKind.UIButton
+            _ => UINavigationTriggerKind.Signal
         };
+
+        public void OnBeforeSerialize()
+        {
+        }
+
+        public void OnAfterDeserialize()
+        {
+            if ((int)kind == 0)
+                kind = UINavigationPortalConditionKind.Signal;
+        }
     }
 
     [Node("UI Navigation/UI Manager", "", "Portal")]
@@ -688,7 +854,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
         {
             context.AddOption<string>(DisplayNameOption)
                 .WithDisplayName("Display Name")
-                .WithDefaultValue(string.IsNullOrEmpty(InitialDisplayName) ? "Portal" : InitialDisplayName)
+                .WithDefaultValue(InitialDisplayName ?? string.Empty)
                 .ShowInInspectorOnly()
                 .Delayed()
                 .Build();
@@ -712,14 +878,21 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
 
         protected override void OnDefinePorts(IPortDefinitionContext context)
         {
-            string displayName = GetOptionValue(DisplayNameOption, "Portal");
-            Title = string.IsNullOrWhiteSpace(displayName)
-                ? "Portal"
-                : displayName.Trim();
             DefaultColor = UINavigationNodeColors.Portal;
 
             UINavigationPortalCondition condition = GetCondition();
-            string keyName = condition.Key.IsValid ? condition.Key.ToString() : "Unassigned";
+            string keyName =
+                condition.SignalAddressKind == UINavigationSignalAddressKind.Custom
+                    ? condition.CustomSignal
+                    : condition.Key.IsValid
+                        ? condition.Key.ToString()
+                        : "Unassigned";
+
+            string displayName = GetOptionValue(DisplayNameOption, string.Empty);
+            Title = string.IsNullOrWhiteSpace(displayName)
+                ? $"Portal - {keyName}"
+                : displayName.Trim();
+
             string portDisplayName = condition.Kind switch
             {
                 UINavigationPortalConditionKind.Signal => $"Signal · {keyName}",

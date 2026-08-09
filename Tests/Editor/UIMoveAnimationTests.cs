@@ -79,6 +79,43 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         }
 
         [Test]
+        public void Animator_RestoresTransitionDurationAndSuppressesDuplicateElementOnce()
+        {
+            var element = new VisualElement();
+            element.style.transitionDuration = new List<TimeValue>
+            {
+                new TimeValue(0.2f),
+                new TimeValue(0.4f)
+            };
+            var animation = new UIAnimation();
+            var animator = new UIAnimator();
+            var bindings = (List<UIAnimationBinding>)typeof(UIAnimator)
+                .GetField("_bindings", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(animator);
+            bindings.Add(new UIAnimationBinding(element, animation));
+            bindings.Add(new UIAnimationBinding(element, animation));
+
+            typeof(UIAnimator)
+                .GetMethod("SuppressTransitions", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(animator, null);
+
+            Assert.AreEqual(1, element.style.transitionDuration.value.Count);
+            Assert.AreEqual(0f, element.style.transitionDuration.value[0].value);
+            var overrides = (System.Collections.ICollection)typeof(UIAnimator)
+                .GetField("_transitionOverrides", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(animator);
+            Assert.AreEqual(1, overrides.Count);
+
+            typeof(UIAnimator)
+                .GetMethod("RestoreTransitions", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(animator, null);
+
+            Assert.AreEqual(2, element.style.transitionDuration.value.Count);
+            Assert.AreEqual(0.2f, element.style.transitionDuration.value[0].value);
+            Assert.AreEqual(0.4f, element.style.transitionDuration.value[1].value);
+        }
+
+        [Test]
         public void Show_ResolvesDirectionToStartAndCustomIgnoresOffset()
         {
             VisualElement element = ElementAt(new Vector3(5f, 6f, 7f));

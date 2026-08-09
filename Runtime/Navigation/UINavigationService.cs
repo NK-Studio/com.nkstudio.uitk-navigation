@@ -16,12 +16,18 @@ namespace NKStudio.UITKNavigation.Navigation
 
         private readonly Dictionary<UIKey, UINavigationViewCommand> _showCommands = new();
         private readonly Dictionary<UIKey, UINavigationViewCommand> _hideCommands = new();
+        private readonly List<UINavigationViewCommand> _showCommandBuffer = new();
+        private readonly List<UINavigationViewCommand> _hideCommandBuffer = new();
 
         private bool _dispatching;
+        private int _destinationDepth;
 
         private UINavigationTransition _activeTransition;
         private float[] _delayRemaining = Array.Empty<float>();
         private bool[] _delayConsumed = Array.Empty<bool>();
+        private IReadOnlyList<UINavigationTransition> _delayTransitions;
+        private int _delayStateCount;
+        private bool _hasAutomaticTransitions;
 
         /// <summary>
         /// Initializes a new instance of <see cref="UINavigationService"/>.
@@ -66,24 +72,11 @@ namespace NKStudio.UITKNavigation.Navigation
         /// </summary>
         internal event Action<UINavigationChange> NodeChanging;
 
-        /// <summary>
-        /// Occurs when the hide requested event is raised.
-        /// </summary>
-        public event Action<UIKey[]> HideRequested;
+        internal event Action<IReadOnlyList<UINavigationViewCommand>> HideCommandsRequested;
 
-        /// <summary>
-        /// Occurs when the show requested event is raised.
-        /// </summary>
-        public event Action<UIKey[]> ShowRequested;
+        internal event Action<IReadOnlyList<UINavigationViewCommand>> ShowCommandsRequested;
 
-        internal event Action<UINavigationViewCommand[]> HideCommandsRequested;
-
-        internal event Action<UINavigationViewCommand[]> ShowCommandsRequested;
-
-        /// <summary>
-        /// Occurs when the resync requested event is raised.
-        /// </summary>
-        public event Action<UIKey[]> ResyncRequested;
+        internal event Action<IReadOnlyList<UIKey>> ResyncViewsRequested;
 
         /// <summary>
         /// Occurs when the action requested event is raised.
@@ -104,6 +97,7 @@ namespace NKStudio.UITKNavigation.Navigation
                 return;
 
             IsInitialized = true;
+            Asset?.Prepare();
 
             UINavigationNode start = Asset != null ? Asset.GetStartNode() : null;
             if (start == null)
@@ -114,7 +108,7 @@ namespace NKStudio.UITKNavigation.Navigation
                 return;
             }
 
-            ResyncRequested?.Invoke(Array.Empty<UIKey>());
+            ResyncViewsRequested?.Invoke(Array.Empty<UIKey>());
 
             _dispatching = true;
 
@@ -163,14 +157,17 @@ namespace NKStudio.UITKNavigation.Navigation
         }
 
         /// <summary>
-        /// Performs the trigger button operation.
+        /// Sends a graph-local custom destination signal.
         /// </summary>
-        public bool TriggerButton(UIKey signal)
+        public bool Trigger(string destinationKey)
         {
+            if (string.IsNullOrWhiteSpace(destinationKey))
+                return false;
+
             return Dispatch(new Request(
-                RequestKind.ButtonSignal,
-                null,
-                signal,
+                RequestKind.CustomSignal,
+                destinationKey,
+                default,
                 UINavigationTransitionKind.Push));
         }
 
@@ -210,6 +207,8 @@ namespace NKStudio.UITKNavigation.Navigation
             float delta = Mathf.Max(0f, unscaledDeltaTime);
             IReadOnlyList<UINavigationTransition> transitions = ActiveNode.Transitions;
             EnsureDelayState(transitions);
+            if (!_hasAutomaticTransitions)
+                return false;
 
             for (int i = 0; i < transitions.Count; i++)
             {
@@ -282,7 +281,7 @@ namespace NKStudio.UITKNavigation.Navigation
         public void Resync()
         {
             UINavigationNode node = ActiveNode;
-            ResyncRequested?.Invoke(node != null ? ToArray(node.ShowOnEnter) : Array.Empty<UIKey>());
+            ResyncViewsRequested?.Invoke(node?.ShowOnEnter ?? Array.Empty<UIKey>());
         }
 
         private bool Dispatch(Request request)
@@ -343,8 +342,8 @@ namespace NKStudio.UITKNavigation.Navigation
                 case RequestKind.Signal:
                     return ExecuteSignal(request.Signal);
 
-                case RequestKind.ButtonSignal:
-                    return ExecuteButtonSignal(request.Signal);
+                case RequestKind.CustomSignal:
+                    return ExecuteCustomSignal(request.NodeId);
 
                 case RequestKind.Toggle:
                     return ExecuteToggle(request.Signal, request.ToggleValue);
@@ -364,6 +363,9 @@ namespace NKStudio.UITKNavigation.Navigation
 
             if (Asset == null || !Asset.TryGetNode(nodeId, out UINavigationNode target))
                 return false;
+
+            if (target.IsDestination)
+                return ExecuteDestinationRoute(target);
 
             return ApplyTransition(target, kind);
         }
@@ -391,27 +393,58 @@ namespace NKStudio.UITKNavigation.Navigation
             return false;
         }
 
-        private bool ExecuteButtonSignal(UIKey signal)
+        private bool ExecuteCustomSignal(string signal)
         {
             if (Asset != null &&
-                Asset.TryGetPortal(
-                    UINavigationTriggerKind.UIButton,
-                    signal,
-                    false,
-                    out UINavigationTransition portal))
+                Asset.TryGetPortal(signal, out UINavigationTransition portal))
+            {
                 return ExecuteTransition(portal);
+            }
 
-            if (ActiveNode != null &&
-                ActiveNode.TryGetTransition(
-                    UINavigationTriggerKind.UIButton,
-                    signal,
-                    out UINavigationTransition transition))
-                return ExecuteTransition(transition);
+            if (ActiveNode == null ||
+                !ActiveNode.TryGetTransition(signal, out UINavigationTransition transition))
+            {
+                return false;
+            }
 
-            if (signal.Key.Equals("Back", StringComparison.OrdinalIgnoreCase))
-                return ExecuteBack();
+            return ExecuteTransition(transition);
+        }
 
-            return false;
+        private bool ExecuteDestinationRoute(UINavigationNode destination)
+        {
+            if (Asset == null || destination == null || _destinationDepth >= 16)
+                return false;
+
+            UINavigationTransition portal;
+            bool found =
+                destination.DestinationAddressKind == UINavigationSignalAddressKind.Custom
+                    ? Asset.TryGetPortal(
+                        destination.DestinationCustomSignal,
+                        out portal)
+                    : Asset.TryGetPortal(
+                        UINavigationTriggerKind.Signal,
+                        destination.DestinationSignal,
+                        false,
+                        out portal);
+            if (!found)
+                return false;
+
+            _destinationDepth++;
+            try
+            {
+                bool handled = ExecuteTransition(portal);
+                if (handled && destination.ClearHistory)
+                {
+                    _back.Clear();
+                    _forward.Clear();
+                }
+
+                return handled;
+            }
+            finally
+            {
+                _destinationDepth--;
+            }
         }
 
         private bool ExecuteToggle(UIKey toggle, bool value)
@@ -513,8 +546,8 @@ namespace NKStudio.UITKNavigation.Navigation
             if (next == null || ReferenceEquals(next, previous))
                 return false;
 
-            UINavigationViewCommand[] show = BuildShowCommands(previous, next);
-            UINavigationViewCommand[] hide = BuildHideCommands(previous, next);
+            IReadOnlyList<UINavigationViewCommand> show = BuildShowCommands(previous, next);
+            IReadOnlyList<UINavigationViewCommand> hide = BuildHideCommands(previous, next);
 
             UINavigationChange change = new UINavigationChange(previous, next, kind)
             {
@@ -538,9 +571,7 @@ namespace NKStudio.UITKNavigation.Navigation
             TrimHistory();
 
             HideCommandsRequested?.Invoke(hide);
-            HideRequested?.Invoke(ToKeys(hide));
             ShowCommandsRequested?.Invoke(show);
-            ShowRequested?.Invoke(ToKeys(show));
             NodeChanged?.Invoke(change);
             return true;
         }
@@ -584,17 +615,18 @@ namespace NKStudio.UITKNavigation.Navigation
                 _back.Push(recent[i]);
         }
 
-        private UINavigationViewCommand[] BuildShowCommands(
+        private IReadOnlyList<UINavigationViewCommand> BuildShowCommands(
             UINavigationNode previous,
             UINavigationNode next)
         {
             _showCommands.Clear();
             AddAll(_showCommands, previous?.ShowOnExitCommands);
             AddAll(_showCommands, next.ShowOnEnterCommands);
-            return ToArray(_showCommands);
+            CopyValues(_showCommands, _showCommandBuffer);
+            return _showCommandBuffer;
         }
 
-        private UINavigationViewCommand[] BuildHideCommands(
+        private IReadOnlyList<UINavigationViewCommand> BuildHideCommands(
             UINavigationNode previous,
             UINavigationNode next)
         {
@@ -605,7 +637,8 @@ namespace NKStudio.UITKNavigation.Navigation
             foreach (UIKey key in _showCommands.Keys)
                 _hideCommands.Remove(key);
 
-            return ToArray(_hideCommands);
+            CopyValues(_hideCommands, _hideCommandBuffer);
+            return _hideCommandBuffer;
         }
 
         private static void AddAll(
@@ -623,48 +656,13 @@ namespace NKStudio.UITKNavigation.Navigation
             }
         }
 
-        private static UINavigationViewCommand[] ToArray(
-            IDictionary<UIKey, UINavigationViewCommand> source)
+        private static void CopyValues(
+            Dictionary<UIKey, UINavigationViewCommand> source,
+            List<UINavigationViewCommand> destination)
         {
-            if (source == null || source.Count == 0)
-                return Array.Empty<UINavigationViewCommand>();
-
-            var result = new UINavigationViewCommand[source.Count];
-            source.Values.CopyTo(result, 0);
-            return result;
-        }
-
-        private static UIKey[] ToKeys(IReadOnlyList<UINavigationViewCommand> source)
-        {
-            if (source == null || source.Count == 0)
-                return Array.Empty<UIKey>();
-
-            var result = new UIKey[source.Count];
-            for (int i = 0; i < source.Count; i++)
-                result[i] = source[i].View;
-            return result;
-        }
-        private static UIKey[] ToArray(ICollection<UIKey> source)
-        {
-            if (source == null || source.Count == 0)
-                return Array.Empty<UIKey>();
-
-            UIKey[] result = new UIKey[source.Count];
-            source.CopyTo(result, 0);
-            return result;
-        }
-
-        private static UIKey[] ToArray(IReadOnlyList<UIKey> source)
-        {
-            if (source == null || source.Count == 0)
-                return Array.Empty<UIKey>();
-
-            UIKey[] result = new UIKey[source.Count];
-
-            for (int i = 0; i < source.Count; i++)
-                result[i] = source[i];
-
-            return result;
+            destination.Clear();
+            foreach (UINavigationViewCommand command in source.Values)
+                destination.Add(command);
         }
 
         private enum RequestKind
@@ -673,7 +671,7 @@ namespace NKStudio.UITKNavigation.Navigation
             Back,
             Forward,
             Signal,
-            ButtonSignal,
+            CustomSignal,
             Toggle,
             UIView
         }
@@ -708,12 +706,34 @@ namespace NKStudio.UITKNavigation.Navigation
         {
             IReadOnlyList<UINavigationTransition> transitions = node?.Transitions;
             int count = transitions?.Count ?? 0;
-            _delayRemaining = count == 0 ? Array.Empty<float>() : new float[count];
-            _delayConsumed = count == 0 ? Array.Empty<bool>() : new bool[count];
+            _delayTransitions = transitions;
+            _delayStateCount = count;
+            _hasAutomaticTransitions = false;
+
+            for (int i = 0; i < count; i++)
+            {
+                UINavigationTriggerKind trigger = transitions[i]?.TriggerKind ?? default;
+                if (trigger is UINavigationTriggerKind.TimeDelay or UINavigationTriggerKind.Random)
+                {
+                    _hasAutomaticTransitions = true;
+                    break;
+                }
+            }
+
+            if (!_hasAutomaticTransitions)
+                return;
+
+            if (_delayRemaining.Length < count)
+            {
+                int capacity = Mathf.NextPowerOfTwo(count);
+                _delayRemaining = new float[capacity];
+                _delayConsumed = new bool[capacity];
+            }
 
             for (int i = 0; i < count; i++)
             {
                 UINavigationTransition transition = transitions[i];
+                _delayConsumed[i] = false;
                 _delayRemaining[i] = transition != null &&
                                      transition.TriggerKind == UINavigationTriggerKind.TimeDelay
                     ? Mathf.Max(0f, transition.DelaySeconds)
@@ -723,8 +743,11 @@ namespace NKStudio.UITKNavigation.Navigation
 
         private void EnsureDelayState(IReadOnlyList<UINavigationTransition> transitions)
         {
-            if (_delayRemaining.Length != (transitions?.Count ?? 0))
+            if (!ReferenceEquals(_delayTransitions, transitions) ||
+                _delayStateCount != (transitions?.Count ?? 0))
+            {
                 ResetDelayState(ActiveNode);
+            }
         }
     }
 }

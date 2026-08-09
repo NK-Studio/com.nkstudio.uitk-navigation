@@ -31,6 +31,24 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     errors.Add($"'{node.DisplayName}' 노드의 ID가 비어 있습니다.");
                 else if (!ids.Add(node.Id))
                     errors.Add($"중복된 노드 ID가 있습니다: {node.Id}");
+
+                if (node.IsDestination)
+                {
+                    bool routeFound =
+                        node.DestinationAddressKind == UINavigationSignalAddressKind.Custom
+                            ? !string.IsNullOrEmpty(node.DestinationCustomSignal) &&
+                              asset.TryGetPortal(
+                                  node.DestinationCustomSignal,
+                                  out _)
+                            : node.DestinationSignal.IsValid &&
+                              asset.TryGetPortal(
+                                  UINavigationTriggerKind.Signal,
+                                  node.DestinationSignal,
+                                  false,
+                                  out _);
+                    if (!routeFound)
+                        errors.Add($"'{node.DisplayName}' Destination과 일치하는 Portal이 없습니다.");
+                }
             }
 
             if (string.IsNullOrEmpty(asset.StartNodeId) || !ids.Contains(asset.StartNodeId))
@@ -42,6 +60,7 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     continue;
 
                 var signals = new HashSet<(UINavigationTriggerKind, UIKey)>();
+                var customSignals = new HashSet<string>(StringComparer.Ordinal);
                 foreach (UINavigationTransition transition in node.Transitions)
                 {
                     if (transition == null)
@@ -53,7 +72,14 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     if (transition.TriggerKind != UINavigationTriggerKind.TimeDelay &&
                         transition.TriggerKind != UINavigationTriggerKind.Random)
                     {
-                        if (!transition.Signal.IsValid)
+                        if (transition.TriggerKind == UINavigationTriggerKind.Signal &&
+                            !string.IsNullOrEmpty(transition.CustomSignal))
+                        {
+                            if (!customSignals.Add(transition.CustomSignal))
+                                errors.Add(
+                                    $"'{node.DisplayName}' 노드에 중복 Custom Signal이 있습니다: {transition.CustomSignal}");
+                        }
+                        else if (!transition.Signal.IsValid)
                             errors.Add(
                                 $"'{node.DisplayName}' 노드에 {transition.TriggerKind} Category/Key가 없는 전환이 있습니다.");
                         else if (!signals.Add((transition.TriggerKind, transition.Signal)))

@@ -14,7 +14,7 @@ namespace NKStudio.UITKNavigation.Elements
         /// <summary>
         /// Gets or sets the catalog category used to resolve this button's navigation signal.
         /// </summary>
-        [UIKeySelector(nameof(SignalKey), UIKeyCatalogKind.Button)]
+        [UIKeySelector(nameof(SignalKey), UIKeyCatalogKind.Signal)]
         [UxmlAttribute("signal-category")]
         public string SignalCategory { get; set; } = "Default";
 
@@ -48,7 +48,7 @@ namespace NKStudio.UITKNavigation.Elements
                 return;
             }
 
-            UINavigationEvents.RequestButtonSignal(signal);
+            NKStudio.UITKNavigation.Navigation.Signal.Send(signal);
         }
     }
 }

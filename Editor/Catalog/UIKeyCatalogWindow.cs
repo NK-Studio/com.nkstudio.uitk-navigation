@@ -141,7 +141,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             var kindToolbar = new Toolbar();
             kindToolbar.AddToClassList("key-catalog__kind-tabs");
             AddKindToggle(kindToolbar, UIKeyCatalogKind.View, "View");
-            AddKindToggle(kindToolbar, UIKeyCatalogKind.Button, "Button");
+            AddKindToggle(kindToolbar, UIKeyCatalogKind.Toggle, "Toggle");
             AddKindToggle(kindToolbar, UIKeyCatalogKind.Signal, "Signal");
             sidebar.Add(kindToolbar);
 

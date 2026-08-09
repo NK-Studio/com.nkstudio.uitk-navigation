@@ -217,27 +217,32 @@ namespace NKStudio.UITKNavigation.Animation
 
             Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
             Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-            Vector2[] corners =
-            {
-                Vector2.zero,
-                new Vector2(layout.width, 0f),
-                new Vector2(0f, layout.height),
-                new Vector2(layout.width, layout.height)
-            };
-
-            for (int i = 0; i < corners.Length; i++)
-            {
-                Vector2 local = corners[i] - new Vector2(originX, originY);
-                local = Vector2.Scale(local, scale);
-                Vector2 rotated = new Vector2(
-                    local.x * cos - local.y * sin,
-                    local.x * sin + local.y * cos);
-                Vector2 point = rotated + new Vector2(originX + layout.x, originY + layout.y);
-                min = Vector2.Min(min, point);
-                max = Vector2.Max(max, point);
-            }
+            var origin = new Vector2(originX, originY);
+            var offset = new Vector2(originX + layout.x, originY + layout.y);
+            AccumulateCorner(Vector2.zero, origin, offset, scale, cos, sin, ref min, ref max);
+            AccumulateCorner(new Vector2(layout.width, 0f), origin, offset, scale, cos, sin, ref min, ref max);
+            AccumulateCorner(new Vector2(0f, layout.height), origin, offset, scale, cos, sin, ref min, ref max);
+            AccumulateCorner(new Vector2(layout.width, layout.height), origin, offset, scale, cos, sin, ref min, ref max);
 
             return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        private static void AccumulateCorner(
+            Vector2 corner,
+            Vector2 origin,
+            Vector2 offset,
+            Vector2 scale,
+            float cos,
+            float sin,
+            ref Vector2 min,
+            ref Vector2 max)
+        {
+            Vector2 local = Vector2.Scale(corner - origin, scale);
+            var point = new Vector2(
+                local.x * cos - local.y * sin,
+                local.x * sin + local.y * cos) + offset;
+            min = Vector2.Min(min, point);
+            max = Vector2.Max(max, point);
         }
 
         private static float ResolveOrigin(Length length, float size)
