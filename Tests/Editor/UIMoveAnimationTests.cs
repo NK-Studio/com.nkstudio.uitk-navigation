@@ -62,11 +62,7 @@ namespace NKStudio.UITKNavigation.Editor.Tests
         [Test]
         public void DirectionWidget_HasSeventeenPartsAndFourCustomCorners()
         {
-            MethodInfo method = typeof(UITransitionPropertyDrawer).GetMethod(
-                "BuildDirectionGrid",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.NotNull(method);
-            VisualElement root = (VisualElement)method.Invoke(null, new object[] { null });
+            VisualElement root = UITransitionDirectionGrid.BuildDirectionGrid(null);
             List<UIMoveDirection> mapped = root.Query<VisualElement>().ToList()
                 .AsValueEnumerable()
                 .Where(element => Enum.TryParse(element.tooltip, out UIMoveDirection _))

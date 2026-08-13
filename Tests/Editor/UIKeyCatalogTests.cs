@@ -101,15 +101,18 @@ namespace NKStudio.UITKNavigation.Editor.Tests
             VisualElement field = picker[0];
             Assert.AreEqual("field", field.name);
             Assert.IsTrue(field.ClassListContains("unity-base-field"));
-            Assert.AreEqual(2, field.childCount);
 
-            Label label = field[0] as Label;
+            // The picker rows live in the content container, so the label and the input
+            // are reached through the hierarchy instead of the content indexer.
+            Assert.AreEqual(2, field.hierarchy.childCount);
+
+            Label label = field.hierarchy[0] as Label;
             Assert.IsNotNull(label);
             Assert.IsTrue(label.ClassListContains("unity-base-field__label"));
             Assert.IsTrue(label.ClassListContains("ge-model-property-field__label"));
             Assert.IsTrue(label.ClassListContains("unity-property-field__label"));
 
-            VisualElement input = field[1];
+            VisualElement input = field.hierarchy[1];
             Assert.IsTrue(input.ClassListContains("unity-base-field__input"));
             Assert.IsTrue(input.ClassListContains("ge-model-property-field__input"));
             Assert.IsTrue(input.ClassListContains("unity-property-field__input"));

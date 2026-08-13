@@ -23,7 +23,7 @@ namespace NKStudio.UITKNavigation.Editor.Elements
         {
             var root = new VisualElement();
             StyleSheet theme = AssetDatabase.LoadAssetAtPath<StyleSheet>(
-                UITransitionPropertyDrawer.ThemeStyleSheetPath);
+                UITransitionDrawerStyles.ThemeStyleSheetPath);
             if (theme != null)
                 root.styleSheets.Add(theme);
             root.AddToClassList("nk-transition-root");
@@ -48,7 +48,7 @@ namespace NKStudio.UITKNavigation.Editor.Elements
                 }
             };
             card.AddToClassList("nk-transition-channel-card");
-            UITransitionPropertyDrawer.Round(card, 8f);
+            UITransitionDrawerStyles.Round(card, 8f);
 
             card.Add(SimpleField(
                 onStart,
@@ -105,7 +105,7 @@ namespace NKStudio.UITKNavigation.Editor.Elements
             {
                 style = { width = 7f, height = 7f, marginRight = 7f, backgroundColor = StartAccent }
             };
-            UITransitionPropertyDrawer.Round(dot, 3.5f);
+            UITransitionDrawerStyles.Round(dot, 3.5f);
             header.Add(dot);
 
             var headerLabel = new Label("Custom Start Position")
@@ -203,7 +203,7 @@ namespace NKStudio.UITKNavigation.Editor.Elements
             {
                 style = { width = 7f, height = 7f, marginRight = 7f, backgroundColor = StartAccent }
             };
-            UITransitionPropertyDrawer.Round(dot, 3.5f);
+            UITransitionDrawerStyles.Round(dot, 3.5f);
             header.Add(dot);
 
             var headerLabel = new Label("Auto Hide after Show")
@@ -326,7 +326,7 @@ namespace NKStudio.UITKNavigation.Editor.Elements
 
         private static bool TryGetElement(Label hint, out NavElement element)
         {
-            if (UITransitionPropertyDrawer.TryGetInspectedNavElement(out element))
+            if (UITransitionSelectionResolver.TryGetInspectedNavElement(out element))
             {
                 hint.text = string.Empty;
                 return true;

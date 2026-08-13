@@ -84,11 +84,7 @@ namespace NKStudio.UITKNavigation.Popup
             pickingMode = PickingMode.Position;
         }
 
-        internal void InitializeRuntime(
-            UIPopupBackdrop backdrop,
-            UIPopupContent content,
-            Func<UIPopupCloseReason, string, bool> close,
-            Action<string> action)
+        internal void InitializeRuntime(UIPopupBackdrop backdrop, UIPopupContent content, Func<UIPopupCloseReason, string, bool> close, Action<string> action)
         {
             DisposeRuntime();
 
@@ -96,16 +92,14 @@ namespace NKStudio.UITKNavigation.Popup
             _close = close;
             _action = action;
             _visibility = new UIViewVisibility(this, false);
-            _visibility.AddLayer(
-                backdrop,
-                backdropTransitions?.BuildShow(),
-                backdropTransitions?.BuildHide());
-            _visibility.AddLayer(
-                content,
-                contentTransitions?.BuildShow(),
-                contentTransitions?.BuildHide());
-            _visibility.BackHandler = () =>
-                _close?.Invoke(UIPopupCloseReason.Back, string.Empty) ?? false;
+            
+            if (backdrop != null)
+                _visibility.AddLayer(backdrop, backdropTransitions?.BuildShow(), backdropTransitions?.BuildHide());
+
+            if (content != null)
+                _visibility.AddLayer(content, contentTransitions?.BuildShow(), contentTransitions?.BuildHide());
+            
+            _visibility.BackHandler = () => _close?.Invoke(UIPopupCloseReason.Back, string.Empty) ?? false;
 
             if (_backdrop != null)
             {
@@ -134,6 +128,7 @@ namespace NKStudio.UITKNavigation.Popup
         internal void FocusRuntime() => FocusFirstContent();
 
         internal void HideRuntime() => _visibility?.Hide();
+        
         internal void InstantHideRuntime() => _visibility?.InstantHide();
 
         internal void RequestAction(string actionId, bool closePopup)

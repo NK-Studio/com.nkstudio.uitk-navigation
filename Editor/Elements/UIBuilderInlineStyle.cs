@@ -56,6 +56,7 @@ namespace NKStudio.UITKNavigation.Editor.Elements
             }
             catch (Exception)
             {
+                // ignored
             }
 
             return false;
@@ -86,9 +87,7 @@ namespace NKStudio.UITKNavigation.Editor.Elements
                 }
             }
 
-            _translateValueProperty = _translateFieldType?.GetProperty(
-                "value",
-                BindingFlags.Public | BindingFlags.Instance);
+            _translateValueProperty = _translateFieldType?.GetProperty("value", BindingFlags.Public | BindingFlags.Instance);
         }
     }
 }

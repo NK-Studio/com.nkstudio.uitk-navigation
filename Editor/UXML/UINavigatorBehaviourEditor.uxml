@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <Style src="../Styles/UINavigatorBehaviourEditor.uss"/>
+    <ui:VisualElement class="uinavigator-inspector">
+        <ui:VisualElement class="uinavigator-inspector__hero">
+            <ui:Label text="UI" class="uinavigator-inspector__hero-icon"/>
+            <ui:VisualElement class="uinavigator-inspector__hero-copy">
+                <ui:Label text="UI Navigator" class="uinavigator-inspector__hero-title"/>
+                <ui:Label text="Graph 기반 화면 전환과 히스토리를 관리합니다." class="uinavigator-inspector__hero-subtitle"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="uinavigator-inspector__card">
+            <ui:Label text="Navigation" class="uinavigator-inspector__card-title"/>
+            <ui:Label text="시작 화면과 화면 전환 규칙을 정의한 Graph입니다." class="uinavigator-inspector__card-description"/>
+            <uie:PropertyField binding-path="navigationAsset" label="Navigation Graph" tooltip="Create &gt; UI Navigation &gt; UI Navigation Graph로 생성한 그래프 에셋입니다." class="uinavigator-inspector__field"/>
+            <ui:VisualElement class="uinavigator-inspector__actions">
+                <ui:Button name="create-graph-button" text="Create New"/>
+                <ui:Button name="open-graph-button" text="Open Graph" class="uinavigator-inspector__actions-button--last"/>
+            </ui:VisualElement>
+            <ui:VisualElement name="validation" class="uinavigator-inspector__validation"/>
+        </ui:VisualElement>
+        <ui:VisualElement class="uinavigator-inspector__card">
+            <ui:Label text="History" class="uinavigator-inspector__card-title"/>
+            <ui:Label text="Back과 Forward 이동에 보관할 최대 화면 수입니다." class="uinavigator-inspector__card-description"/>
+            <uie:PropertyField binding-path="maxHistoryDepth" label="Max History Depth" class="uinavigator-inspector__field"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

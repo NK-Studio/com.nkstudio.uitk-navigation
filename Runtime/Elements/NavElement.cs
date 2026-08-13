@@ -14,6 +14,9 @@ namespace NKStudio.UITKNavigation.Elements
     [UxmlElement]
     public partial class NavElement : VisualElement, IUIVisibleView
     {
+        // This list intentionally survives SubsystemRegistration when Domain Reload is disabled.
+        private static readonly List<NavElement> AttachedElements = new List<NavElement>();
+
         /// <summary>
         /// Gets the runtime visible states.
         /// </summary>
@@ -30,6 +33,7 @@ namespace NKStudio.UITKNavigation.Elements
 
         private UIViewVisibility _visibility;
         private IVisualElementScheduledItem _autoHideTimer;
+        private IVisualElementScheduledItem _startupAnimation;
         private bool _startupApplied;
         private UIKey _registeredId;
         private string _viewCategory = "Default";
@@ -222,11 +226,10 @@ namespace NKStudio.UITKNavigation.Elements
 
         private void OnAttached(AttachToPanelEvent _)
         {
+            TrackAttachedElement(this);
+
             UIViewVisibility visibility = EnsureVisibility();
-            visibility.HideOnBackButton = HideOnBack;
-            visibility.BlockBackButton = BlockBack;
-            visibility.HideMode = startup?.HideMode ?? UIViewHideMode.Display;
-            ApplyTransitions(visibility);
+            ConfigureVisibility(visibility);
 
             if (!Application.isPlaying || _startupApplied)
             {
@@ -292,8 +295,10 @@ namespace NKStudio.UITKNavigation.Elements
 
         private void ScheduleStartAnimation(UIViewVisibility visibility, bool show)
         {
-            schedule.Execute(() =>
+            CancelStartAnimation();
+            _startupAnimation = schedule.Execute(() =>
             {
+                _startupAnimation = null;
                 if (panel == null)
                     return;
                 if (show) visibility.Show(); else visibility.Hide();
@@ -303,6 +308,8 @@ namespace NKStudio.UITKNavigation.Elements
         private void OnDetached(DetachFromPanelEvent _)
         {
             CancelAutoHide();
+            CancelStartAnimation();
+            AttachedElements.Remove(this);
 
             if (Application.isPlaying && Id.IsValid)
                 RuntimeVisibleStates[Id] = IsVisible;
@@ -324,6 +331,56 @@ namespace NKStudio.UITKNavigation.Elements
             RuntimeVisibleStates.Clear();
         }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void PrepareAttachedElementsForPlayMode()
+        {
+            for (int i = AttachedElements.Count - 1; i >= 0; i--)
+            {
+                NavElement element = AttachedElements[i];
+                if (element?.panel == null)
+                    AttachedElements.RemoveAt(i);
+            }
+
+            AttachedElements.Sort(CompareHierarchyDepth);
+
+            for (int i = 0; i < AttachedElements.Count; i++)
+            {
+                NavElement element = AttachedElements[i];
+                if (element.panel.contextType == ContextType.Player)
+                    element.PrepareForPlaySession();
+            }
+        }
+
+        internal void PrepareForPlaySession()
+        {
+            CancelAutoHide();
+            CancelStartAnimation();
+
+            _startupApplied = true;
+            UIViewVisibility visibility = EnsureVisibility();
+            ConfigureVisibility(visibility);
+            ApplyStartBehaviour(visibility);
+            ForceRefreshRegistration();
+        }
+
+        private static void TrackAttachedElement(NavElement element)
+        {
+            if (!AttachedElements.Contains(element))
+                AttachedElements.Add(element);
+        }
+
+        private static int CompareHierarchyDepth(NavElement left, NavElement right) =>
+            GetHierarchyDepth(left).CompareTo(GetHierarchyDepth(right));
+
+        private static int GetHierarchyDepth(VisualElement element)
+        {
+            int depth = 0;
+            for (VisualElement parent = element?.hierarchy.parent; parent != null; parent = parent.hierarchy.parent)
+                depth++;
+
+            return depth;
+        }
+
         private UIViewVisibility EnsureVisibility()
         {
             if (_visibility != null)
@@ -335,6 +392,21 @@ namespace NKStudio.UITKNavigation.Elements
             _visibility.ShowFinished += OnShowFinished;
             _visibility.HideStarted += OnHideStarted;
             return _visibility;
+        }
+
+        private void ConfigureVisibility(UIViewVisibility visibility)
+        {
+            visibility.HideOnBackButton = HideOnBack;
+            visibility.BlockBackButton = BlockBack;
+            visibility.HideMode = startup?.HideMode ?? UIViewHideMode.Display;
+            ApplyTransitions(visibility);
+        }
+
+        private void ForceRefreshRegistration()
+        {
+            UIViewRegistry.Unregister(_registeredId, this);
+            _registeredId = default;
+            RefreshRegistration();
         }
 
         #region Hierarchy Propagation
@@ -462,6 +534,15 @@ namespace NKStudio.UITKNavigation.Elements
 
             _autoHideTimer.Pause();
             _autoHideTimer = null;
+        }
+
+        private void CancelStartAnimation()
+        {
+            if (_startupAnimation == null)
+                return;
+
+            _startupAnimation.Pause();
+            _startupAnimation = null;
         }
 
         #endregion

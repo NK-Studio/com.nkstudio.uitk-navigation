@@ -5,6 +5,8 @@ namespace NKStudio.UITKNavigation.Popup
     /// </summary>
     public enum UIPopupCloseReason
     {
+        /// <summary>No close reason has been assigned. This is the value of a default result.</summary>
+        None,
         /// <summary>The popup closed after one of its actions was invoked.</summary>
         Action,
         /// <summary>The popup closed in response to a Back request.</summary>

@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <Style src="project://database/Packages/com.nkstudio.uitk-navigation/Editor/Styles/UIBackInputRouterEditor.uss?fileID=7433441132597879392&amp;guid=86f22afaeb6942098c4f1e9d80f72d51&amp;type=3#UIBackInputRouterEditor"/>
+    <ui:VisualElement class="uiback-inspector">
+        <ui:VisualElement class="uiback-inspector__hero">
+            <ui:Label text="←" class="uiback-inspector__hero-icon"/>
+            <ui:VisualElement class="uiback-inspector__hero-copy">
+                <ui:Label text="UI Back Input" class="uiback-inspector__hero-title"/>
+                <ui:Label text="키보드와 마우스의 화면 이동 입력을 연결합니다." name="Label" class="uiback-inspector__hero-subtitle"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="uiback-inspector__card">
+            <ui:Label text="Input Sources" class="uiback-inspector__card-title"/>
+            <ui:Label text="Back과 Forward 이동에 사용할 입력을 선택합니다." class="uiback-inspector__card-description"/>
+            <uie:PropertyField binding-path="enableMouseButtons" label="Mouse Back / Forward" class="uiback-inspector__field"/>
+            <uie:PropertyField binding-path="enableEscape" label="Escape" class="uiback-inspector__field"/>
+            <uie:PropertyField binding-path="enableBackspace" label="Backspace" class="uiback-inspector__field"/>
+        </ui:VisualElement>
+        <ui:VisualElement class="uiback-inspector__card">
+            <ui:Label text="Repeat Guard" class="uiback-inspector__card-title"/>
+            <ui:Label text="빠른 연속 입력으로 Back 요청이 중복되는 것을 방지합니다." class="uiback-inspector__card-description"/>
+            <uie:PropertyField binding-path="backRateLimit" label="Back Rate Limit" class="uiback-inspector__field"/>
+            <ui:Label text="단위: 초 · 0이면 제한하지 않습니다." class="uiback-inspector__hint"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

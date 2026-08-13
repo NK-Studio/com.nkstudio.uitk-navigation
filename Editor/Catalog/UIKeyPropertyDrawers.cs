@@ -33,32 +33,10 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             if (category == null || key == null)
                 return new Label($"UIKey 직렬화 필드를 찾지 못했습니다: {property.propertyPath}");
 
-            UIKeyPickerField field = CreateField(property.displayName, property, category, key);
+            UIKeyPickerField field = UIKeyPickerField.Create(property.displayName, property, category, key);
             field.TrackPropertyValue(category, _ => field.Refresh());
             field.TrackPropertyValue(key, _ => field.Refresh());
             return field;
-        }
-
-        internal static UIKeyPickerField CreateField(
-            string label,
-            SerializedProperty owner,
-            SerializedProperty category,
-            SerializedProperty key,
-            Func<UIKeyCatalogKind> kindGetter = null,
-            bool graphInspectorLayout = false)
-        {
-            return new UIKeyPickerField(
-                label,
-                () => new UIKey(category.stringValue, key.stringValue),
-                value =>
-                {
-                    category.stringValue = value.Category;
-                    key.stringValue = value.Key;
-                    owner.serializedObject.ApplyModifiedProperties();
-                },
-                kindGetter,
-                owner,
-                graphInspectorLayout);
         }
     }
 
@@ -76,7 +54,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                     HelpBoxMessageType.Error);
             }
 
-            UIKeyPickerField field = UIKeyPropertyDrawer.CreateField(
+            UIKeyPickerField field = UIKeyPickerField.Create(
                 property.displayName.Replace(" Category", string.Empty),
                 property,
                 property,
@@ -117,7 +95,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
             var root = new VisualElement();
             root.AddToClassList("uinavigation-phase");
-            UINavigationListDrawerUtility.AttachGraphInspectorStyles(root);
+            UINavigationInspectorStyles.Attach(root);
 
             var titleRow = new VisualElement();
             titleRow.AddToClassList("uinavigation-phase__header");
@@ -161,7 +139,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             var root = new VisualElement();
             root.AddToClassList("uinavigation-phase");
             root.AddToClassList("uinavigation-output-phase");
-            UINavigationListDrawerUtility.AttachGraphInspectorStyles(root);
+            UINavigationInspectorStyles.Attach(root);
 
             var titleRow = new VisualElement();
             titleRow.AddToClassList("uinavigation-phase__header");
@@ -494,7 +472,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             var root = new VisualElement();
             root.AddToClassList("uinavigation-phase");
             root.AddToClassList("uinavigation-destination-phase");
-            UINavigationListDrawerUtility.AttachGraphInspectorStyles(root);
+            UINavigationInspectorStyles.Attach(root);
 
             var titleRow = new VisualElement();
             titleRow.AddToClassList("uinavigation-phase__header");
@@ -528,7 +506,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 value = customSignal.stringValue,
                 isDelayed = true
             };
-            UIKeyPickerField databaseField = UIKeyPropertyDrawer.CreateField(
+            UIKeyPickerField databaseField = UIKeyPickerField.Create(
                 "Database Signal",
                 databaseSignal,
                 databaseSignal.FindPropertyRelative("category"),
@@ -540,8 +518,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             body.Add(databaseField);
             root.Add(body);
 
-            MatchInputBoundsToNodeOption(root, kindField);
-            MatchInputBoundsToNodeOption(root, customField);
+            UINavigationInspectorLayout.MatchInputBoundsToNodeOption(root, kindField);
+            UINavigationInspectorLayout.MatchInputBoundsToNodeOption(root, customField);
 
             void Refresh()
             {
@@ -569,81 +547,6 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return root;
         }
 
-        internal static void MatchInputBoundsToNodeOption(
-            VisualElement owner,
-            VisualElement field)
-        {
-            VisualElement input = field.Q<VisualElement>(
-                className: "unity-base-field__input");
-            VisualElement referenceInput = null;
-
-            void ResolveReferenceInput()
-            {
-                VisualElement panelRoot = field.panel?.visualTree;
-                if (panelRoot == null)
-                {
-                    referenceInput = null;
-                    return;
-                }
-
-                Label referenceLabel = panelRoot
-                    .Query<Label>(className: "ge-model-property-field__label")
-                    .Where(candidate =>
-                        candidate != null &&
-                        !owner.Contains(candidate) &&
-                        candidate.parent?.Q<VisualElement>(
-                            className: "unity-base-field__input") != null)
-                    .Build()
-                    .First();
-                referenceInput = referenceLabel?.parent?.Q<VisualElement>(
-                    className: "unity-base-field__input");
-            }
-
-            void Apply()
-            {
-                if (input == null ||
-                    input.worldBound.width <= 0f)
-                {
-                    return;
-                }
-
-                if (referenceInput == null ||
-                    referenceInput.panel != field.panel)
-                {
-                    ResolveReferenceInput();
-                }
-
-                if (referenceInput == null ||
-                    referenceInput.worldBound.width <= 0f)
-                {
-                    return;
-                }
-
-                float leftOffset =
-                    referenceInput.worldBound.xMin - input.worldBound.xMin;
-                float rightOffset =
-                    input.worldBound.xMax - referenceInput.worldBound.xMax;
-                if (Mathf.Abs(leftOffset) <= 0.25f &&
-                    Mathf.Abs(rightOffset) <= 0.25f)
-                {
-                    return;
-                }
-
-                input.style.marginLeft =
-                    input.resolvedStyle.marginLeft + leftOffset;
-                input.style.marginRight =
-                    input.resolvedStyle.marginRight + rightOffset;
-            }
-
-            field.RegisterCallback<AttachToPanelEvent>(_ =>
-            {
-                ResolveReferenceInput();
-                Apply();
-            });
-            field.RegisterCallback<DetachFromPanelEvent>(_ =>
-                referenceInput = null);
-            field.RegisterCallback<GeometryChangedEvent>(_ => Apply());
-        }
     }
 
     [CustomPropertyDrawer(typeof(UINavigationPortalCondition))]
@@ -662,7 +565,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             var root = new VisualElement();
             root.AddToClassList("uinavigation-phase");
             root.AddToClassList("uinavigation-portal-phase");
-            UINavigationListDrawerUtility.AttachGraphInspectorStyles(root);
+            UINavigationInspectorStyles.Attach(root);
 
             var titleRow = new VisualElement();
             titleRow.AddToClassList("uinavigation-phase__header");
@@ -705,7 +608,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             };
             body.Add(customSignalField);
 
-            UIKeyPickerField keyField = UIKeyPropertyDrawer.CreateField(
+            UIKeyPickerField keyField = UIKeyPickerField.Create(
                 "Key",
                 property,
                 key.FindPropertyRelative("category"),
@@ -721,16 +624,16 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             };
             body.Add(toggleField);
 
-            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+            UINavigationInspectorLayout.MatchInputBoundsToNodeOption(
                 root,
                 kindField);
-            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+            UINavigationInspectorLayout.MatchInputBoundsToNodeOption(
                 root,
                 addressKindField);
-            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+            UINavigationInspectorLayout.MatchInputBoundsToNodeOption(
                 root,
                 customSignalField);
-            UINavigationSignalAddressDrawer.MatchInputBoundsToNodeOption(
+            UINavigationInspectorLayout.MatchInputBoundsToNodeOption(
                 root,
                 toggleField);
 
@@ -820,7 +723,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
                     var fields = new VisualElement();
                     fields.AddToClassList("uinavigation-command-card__fields");
-                    var picker = UIKeyPropertyDrawer.CreateField(
+                    var picker = UIKeyPickerField.Create(
                         string.Empty,
                         viewKey,
                         category,
@@ -1177,17 +1080,6 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
                 : new Color(0.38f, 0.38f, 0.38f);
             return label;
         }
-        internal static void AttachGraphInspectorStyles(VisualElement root)
-        {
-            if (root == null)
-                return;
-
-            StyleSheet styles = AssetDatabase.LoadAssetAtPath<StyleSheet>(
-                "Packages/com.nkstudio.uitk-navigation/Editor/Styles/UINavigationGraphInspector.uss");
-            if (styles != null && !root.styleSheets.Contains(styles))
-                root.styleSheets.Add(styles);
-        }
-
         internal static VisualElement CreateList(
             string title,
             SerializedProperty array,
@@ -1199,7 +1091,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         {
             var root = new VisualElement();
             root.AddToClassList("uinavigation-list-root");
-            AttachGraphInspectorStyles(root);
+            UINavigationInspectorStyles.Attach(root);
 
             var header = new VisualElement();
             header.AddToClassList("uinavigation-list-header");

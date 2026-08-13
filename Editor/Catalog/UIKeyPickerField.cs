@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using NKStudio.UITKNavigation.Elements;
 using NKStudio.UITKNavigation.Identity;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
@@ -20,14 +21,6 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
     internal sealed class UIKeyPickerField : VisualElement
     {
-        private sealed class PickerBaseField : BaseField<UIKey>
-        {
-            internal PickerBaseField(string label, VisualElement input)
-                : base(label, input)
-            {
-            }
-        }
-
         private readonly Func<UIKey> _getter;
         private readonly Action<UIKey> _setter;
         private readonly Func<UIKeyCatalogKind> _kindGetter;
@@ -67,39 +60,41 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             _kindGetter = kindGetter ?? (() => UIKeyCatalogKind.Signal);
             _owner = owner;
 
-            var input = new VisualElement();
-            var field = new PickerBaseField(label, input)
+            // SimpleBaseField supplies the aligned label and the input container, so the picker
+            // only fills that container with its own rows. An empty label draws no label at all.
+            var field = new SimpleBaseField
             {
-                name = "field"
+                name = "field",
+                Label = label ?? string.Empty
             };
             Add(field);
+
+            VisualElement input = field.contentContainer;
+
+            // SimpleBaseField zeroes the label margin; the theme value is restored so the input
+            // starts exactly where a built-in field's input does.
+            field.LabelElement.style.marginRight = StyleKeyword.Null;
 
             if (graphInspectorLayout)
             {
                 AddToClassList(GraphPropertyFieldUssClassName);
                 AddToClassList(PropertyField.ussClassName);
-                field.AddToClassList(BaseField<UIKey>.alignedFieldUssClassName);
 
-                field.labelElement.AddToClassList(
-                    GraphPropertyFieldLabelUssClassName);
-                field.labelElement.AddToClassList(PropertyField.labelUssClassName);
+                field.LabelElement.AddToClassList(GraphPropertyFieldLabelUssClassName);
+                field.LabelElement.AddToClassList(PropertyField.labelUssClassName);
                 input.AddToClassList(GraphPropertyFieldInputUssClassName);
                 input.AddToClassList(PropertyField.inputUssClassName);
-
-                if (string.IsNullOrEmpty(label))
-                    field.labelElement.style.display = DisplayStyle.None;
-            }
-            else if (string.IsNullOrEmpty(label))
-            {
-                field.labelElement.style.display = DisplayStyle.None;
-            }
-            else
-            {
-                field.AddToClassList(BaseField<UIKey>.alignedFieldUssClassName);
             }
 
+            // The rows below carry their own buttons and borders, so the field container
+            // stays borderless instead of framing them like a text field.
             input.style.flexDirection = FlexDirection.Column;
+            input.style.alignItems = Align.Stretch;
             input.style.minWidth = 0f;
+            input.style.paddingTop = 0f;
+            input.style.paddingBottom = 0f;
+            input.style.borderTopWidth = 0f;
+            input.style.borderBottomWidth = 0f;
 
             var mainRow = new VisualElement();
             mainRow.style.flexDirection = FlexDirection.Row;
@@ -111,6 +106,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             _pickerButton.style.flexGrow = 1f;
             _pickerButton.style.flexShrink = 1f;
             _pickerButton.style.minWidth = 0f;
+            // The theme gives buttons a 3px side margin; the first one starts at the input edge.
+            _pickerButton.style.marginLeft = 0f;
             _pickerButton.style.unityTextAlign = TextAnchor.MiddleLeft;
             _pickerButton.tooltip = "등록된 UI Navigation Category/Key를 검색합니다.";
             mainRow.Add(_pickerButton);
@@ -125,6 +122,8 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             mainRow.Add(_renameButton);
 
             _clearButton = CreateCompactButton("×", "주소를 비웁니다.", () => SetValue(default));
+            // The theme gives buttons a 3px side margin; this one ends at the input edge.
+            _clearButton.style.marginRight = 0f;
             mainRow.Add(_clearButton);
 
             _warning = new Label("⚠");
@@ -165,6 +164,31 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             UIKeyCatalog.Changed += Refresh;
             RegisterCallback<DetachFromPanelEvent>(_ => UIKeyCatalog.Changed -= Refresh);
             Refresh();
+        }
+
+        /// <summary>
+        /// Creates a picker bound to the serialized category and key strings of <paramref name="owner"/>.
+        /// </summary>
+        internal static UIKeyPickerField Create(
+            string label,
+            SerializedProperty owner,
+            SerializedProperty category,
+            SerializedProperty key,
+            Func<UIKeyCatalogKind> kindGetter = null,
+            bool graphInspectorLayout = false)
+        {
+            return new UIKeyPickerField(
+                label,
+                () => new UIKey(category.stringValue, key.stringValue),
+                value =>
+                {
+                    category.stringValue = value.Category;
+                    key.stringValue = value.Key;
+                    owner.serializedObject.ApplyModifiedProperties();
+                },
+                kindGetter,
+                owner,
+                graphInspectorLayout);
         }
 
         internal void Refresh()

@@ -1,0 +1,105 @@
+.uinavigator-inspector {
+    padding: 4px 2px 6px 2px;
+}
+
+.uinavigator-inspector__hero {
+    min-height: 58px;
+    margin-bottom: 9px;
+    padding: 10px 12px;
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--unity-colors-inspector_titlebar-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-default-border);
+    border-radius: 7px;
+}
+
+.uinavigator-inspector__hero-icon {
+    width: 36px;
+    height: 36px;
+    margin-right: 11px;
+    color: rgb(140, 185, 255);
+    background-color: rgba(61, 111, 184, 0.28);
+    border-width: 1px;
+    border-color: rgba(112, 163, 238, 0.55);
+    border-radius: 7px;
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.uinavigator-inspector__hero-copy {
+    flex-grow: 1;
+    justify-content: center;
+}
+
+.uinavigator-inspector__hero-title {
+    margin-bottom: 2px;
+    color: var(--unity-colors-default-text);
+    font-size: 15px;
+    -unity-font-style: bold;
+    overflow: hidden;
+}
+
+.uinavigator-inspector__hero-subtitle,
+.uinavigator-inspector__card-description {
+    color: var(--unity-colors-label-text);
+    font-size: 10px;
+    overflow: hidden;
+}
+
+.uinavigator-inspector__card {
+    margin-bottom: 8px;
+    padding: 10px 11px;
+    background-color: var(--unity-colors-default-background);
+    border-width: 1px;
+    border-color: var(--unity-colors-default-border);
+    border-radius: 7px;
+}
+
+.uinavigator-inspector__card-title {
+    margin-bottom: 2px;
+    color: var(--unity-colors-default-text);
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.uinavigator-inspector__card-description {
+    margin-bottom: 8px;
+}
+
+.uinavigator-inspector__field {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.uinavigator-inspector__field > .unity-base-field__label {
+    min-width: 125px;
+}
+
+.uinavigator-inspector__actions {
+    height: 28px;
+    margin-top: 5px;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.uinavigator-inspector__actions > Button {
+    flex-grow: 1;
+    height: 26px;
+    margin-left: 0;
+    margin-right: 3px;
+}
+
+.uinavigator-inspector__actions > Button.uinavigator-inspector__actions-button--last {
+    margin-left: 3px;
+    margin-right: 0;
+}
+
+.uinavigator-inspector__validation {
+    margin-top: 8px;
+}
+
+.uinavigator-inspector__validation > .unity-help-box {
+    margin: 0;
+}

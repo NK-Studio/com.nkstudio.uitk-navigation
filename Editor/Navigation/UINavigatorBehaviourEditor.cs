@@ -2,7 +2,9 @@ using System;
 using System.IO;
 using NKStudio.UITKNavigation.Navigation;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace NKStudio.UITKNavigation.Editor.Navigation
 {
@@ -10,60 +12,43 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
     [CanEditMultipleObjects]
     internal sealed class UINavigatorBehaviourEditor : UnityEditor.Editor
     {
+        private const string TreeAssetPath =
+            "Packages/com.nkstudio.uitk-navigation/Editor/UXML/UINavigatorBehaviourEditor.uxml";
+
         private SerializedProperty _navigationAsset;
-        private SerializedProperty _maxHistoryDepth;
+        private Button _createButton;
+        private Button _openButton;
+        private VisualElement _validation;
 
         private void OnEnable()
         {
             _navigationAsset = serializedObject.FindProperty("navigationAsset");
-            _maxHistoryDepth = serializedObject.FindProperty("maxHistoryDepth");
         }
 
-        public override void OnInspectorGUI()
+        public override VisualElement CreateInspectorGUI()
         {
-            serializedObject.Update();
+            var root = new VisualElement();
+            VisualTreeAsset tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(TreeAssetPath);
+            if (tree == null)
+                return root;
 
-            using (new EditorGUI.DisabledScope(true))
-                EditorGUILayout.ObjectField("Script", MonoScript.FromMonoBehaviour((UINavigatorBehaviour)target), typeof(MonoScript), false);
+            tree.CloneTree(root);
+            _createButton = root.Q<Button>("create-graph-button");
+            _openButton = root.Q<Button>("open-graph-button");
+            _validation = root.Q<VisualElement>("validation");
+            _createButton.clicked += CreateAndAssignGraph;
+            _openButton.clicked += OpenGraph;
 
-            EditorGUILayout.PropertyField(_navigationAsset, new GUIContent(
-                "Navigation Graph",
-                "Create > UI Navigation > UI Navigation Graph로 생성한 그래프 에셋입니다."));
-
-            EditorGUILayout.BeginHorizontal();
-            using (new EditorGUI.DisabledScope(targets.Length != 1))
-            {
-                if (GUILayout.Button("Create New"))
-                    CreateAndAssignGraph();
-            }
-
-            UINavigationAsset asset = _navigationAsset.objectReferenceValue as UINavigationAsset;
-            using (new EditorGUI.DisabledScope(
-                       asset == null ||
-                       _navigationAsset.hasMultipleDifferentValues ||
-                       !UINavigationAssetEditor.HasAuthoringGraph(asset)))
-            {
-                if (GUILayout.Button("Open Graph"))
-                    AssetDatabase.OpenAsset(asset);
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.PropertyField(_maxHistoryDepth);
-            serializedObject.ApplyModifiedProperties();
-
-            EditorGUILayout.Space(6f);
-            DrawValidation(asset);
+            root.Bind(serializedObject);
+            root.TrackPropertyValue(_navigationAsset, _ => RefreshGraphState());
+            root.schedule.Execute(RefreshGraphState);
+            return root;
         }
 
         private void CreateAndAssignGraph()
         {
             string folder = UINavigationGraphAssetUtility.GetSelectedFolder();
-            string path = EditorUtility.SaveFilePanelInProject(
-                "Create UI Navigation Graph",
-                "UI Navigation Graph",
-                UINavigationAuthoringGraph.Extension,
-                "새 Navigation Graph의 위치를 선택하세요.",
-                folder);
+            string path = EditorUtility.SaveFilePanelInProject("Create UI Navigation Graph", "UI Navigation Graph", UINavigationAuthoringGraph.Extension, "새 Navigation Graph의 위치를 선택하세요.", folder);
 
             if (string.IsNullOrEmpty(path))
                 return;
@@ -75,20 +60,46 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
             serializedObject.Update();
             _navigationAsset.objectReferenceValue = asset;
             serializedObject.ApplyModifiedProperties();
+            RefreshGraphState();
             AssetDatabase.OpenAsset(asset);
         }
 
-        private static void DrawValidation(UINavigationAsset asset)
+        private void OpenGraph()
         {
+            if (_navigationAsset.hasMultipleDifferentValues)
+                return;
+
+            if (_navigationAsset.objectReferenceValue is UINavigationAsset asset && UINavigationAssetEditor.HasAuthoringGraph(asset))
+                AssetDatabase.OpenAsset(asset);
+        }
+
+        private void RefreshGraphState()
+        {
+            if (_validation == null)
+                return;
+
+            serializedObject.UpdateIfRequiredOrScript();
+            bool mixed = _navigationAsset.hasMultipleDifferentValues;
+            UINavigationAsset asset = mixed ? null : _navigationAsset.objectReferenceValue as UINavigationAsset;
+            _createButton?.SetEnabled(targets.Length == 1);
+            _openButton?.SetEnabled(!mixed && asset != null && UINavigationAssetEditor.HasAuthoringGraph(asset));
+
+            _validation.Clear();
+            if (mixed)
+            {
+                _validation.Add(new HelpBox("선택한 오브젝트에 서로 다른 Navigation Graph가 설정되어 있습니다.", HelpBoxMessageType.Info));
+                return;
+            }
+
             var errors = UINavigationGraphValidator.Validate(asset);
             if (errors.Count == 0)
             {
-                EditorGUILayout.HelpBox("Navigation Graph가 유효합니다.", MessageType.Info);
+                _validation.Add(new HelpBox("Navigation Graph가 유효합니다.", HelpBoxMessageType.Info));
                 return;
             }
 
             foreach (string error in errors)
-                EditorGUILayout.HelpBox(error, MessageType.Warning);
+                _validation.Add(new HelpBox(error, HelpBoxMessageType.Warning));
         }
     }
 

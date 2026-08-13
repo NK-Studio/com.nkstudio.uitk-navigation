@@ -8,9 +8,7 @@ using ZLinq;
 
 namespace NKStudio.UITKNavigation.Editor.Catalog
 {
-    [FilePath(
-        "ProjectSettings/UITKNavigationKeyCatalog.asset",
-        FilePathAttribute.Location.ProjectFolder)]
+    [FilePath("ProjectSettings/UITKNavigationKeyCatalog.asset", FilePathAttribute.Location.ProjectFolder)]
     internal sealed class UIKeyCatalog : ScriptableSingleton<UIKeyCatalog>, ISerializationCallbackReceiver
     {
         [Serializable]
@@ -106,8 +104,10 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
 
         [SerializeField] private List<CategoryEntry> categories = new();
         [SerializeField] private List<CategoryEntry> viewCategories = new();
-        [FormerlySerializedAs("buttonCategories")]
-        [SerializeField] private List<CategoryEntry> toggleCategories = new();
+
+        [FormerlySerializedAs("buttonCategories")] [SerializeField]
+        private List<CategoryEntry> toggleCategories = new();
+
         [SerializeField] private List<CategoryEntry> signalCategories = new();
 #pragma warning disable CS0414
         [SerializeField] private bool splitCatalogMigrated;
@@ -202,9 +202,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             SaveAndNotify();
             return;
 
-            void CollectExisting(
-                IEnumerable<CategoryEntry> source,
-                UIKeyCatalogKind kind)
+            void CollectExisting(IEnumerable<CategoryEntry> source, UIKeyCatalogKind kind)
             {
                 foreach (CategoryEntry category in source ?? Array.Empty<CategoryEntry>())
                 {
@@ -223,8 +221,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             }
         }
 
-        internal IReadOnlyList<CategoryEntry> Categories
-            => GetCategories(UIKeyCatalogKind.Signal);
+        internal IReadOnlyList<CategoryEntry> Categories => GetCategories(UIKeyCatalogKind.Signal);
 
         internal IReadOnlyList<CategoryEntry> GetCategories(UIKeyCatalogKind kind)
         {
@@ -232,8 +229,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return GetMutableCategories(kind);
         }
 
-        internal IEnumerable<UIKey> Keys
-            => GetKeys(UIKeyCatalogKind.Signal);
+        internal IEnumerable<UIKey> Keys => GetKeys(UIKeyCatalogKind.Signal);
 
         internal IEnumerable<UIKey> GetKeys(UIKeyCatalogKind kind)
         {
@@ -241,9 +237,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return GetCachedKeys(kind);
         }
 
-        internal bool Contains(
-            UIKey value,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal bool Contains(UIKey value, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             if (!value.IsValid)
                 return false;
@@ -252,9 +246,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return GetKeyLookup(kind).Contains(new UIKey(value.Category, value.Key));
         }
 
-        internal bool AddCategory(
-            string category,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal bool AddCategory(string category, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             string normalized = Normalize(category);
@@ -267,9 +259,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return true;
         }
 
-        internal bool Add(
-            UIKey value,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal bool Add(UIKey value, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             if (!value.IsValid)
@@ -293,9 +283,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return changed;
         }
 
-        internal int AddRange(
-            IEnumerable<UIKey> values,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal int AddRange(IEnumerable<UIKey> values, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             if (values == null)
@@ -326,9 +314,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return count;
         }
 
-        internal bool RemoveCategory(
-            string category,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal bool RemoveCategory(string category, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             List<CategoryEntry> target = GetMutableCategories(kind);
@@ -343,9 +329,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return true;
         }
 
-        internal bool Remove(
-            UIKey value,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal bool Remove(UIKey value, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             CategoryEntry category = FindCategory(value.Category, kind);
@@ -360,10 +344,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return true;
         }
 
-        internal bool RenameCategoryLocal(
-            string oldCategory,
-            string newCategory,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal bool RenameCategoryLocal(string oldCategory, string newCategory, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             string oldValue = Normalize(oldCategory);
@@ -383,10 +364,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return true;
         }
 
-        internal bool RenameKeyLocal(
-            UIKey oldValue,
-            string newKey,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal bool RenameKeyLocal(UIKey oldValue, string newKey, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             CategoryEntry category = FindCategory(oldValue.Category, kind);
@@ -401,9 +379,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             return true;
         }
 
-        internal CategoryEntry FindCategory(
-            string category,
-            UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
+        internal CategoryEntry FindCategory(string category, UIKeyCatalogKind kind = UIKeyCatalogKind.Signal)
         {
             EnsureValid();
             string normalized = Normalize(category);
@@ -438,21 +414,9 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             viewCategories = NormalizeCategories(viewCategories);
             toggleCategories = NormalizeCategories(toggleCategories);
             signalCategories = NormalizeCategories(signalCategories);
-            BuildLookups(
-                viewCategories,
-                out _viewCategoryLookup,
-                out _viewKeyLookup,
-                out _viewKeys);
-            BuildLookups(
-                toggleCategories,
-                out _toggleCategoryLookup,
-                out _toggleKeyLookup,
-                out _toggleKeys);
-            BuildLookups(
-                signalCategories,
-                out _signalCategoryLookup,
-                out _signalKeyLookup,
-                out _signalKeys);
+            BuildLookups(viewCategories, out _viewCategoryLookup, out _viewKeyLookup, out _viewKeys);
+            BuildLookups(toggleCategories, out _toggleCategoryLookup, out _toggleKeyLookup, out _toggleKeys);
+            BuildLookups(signalCategories, out _signalCategoryLookup, out _signalKeyLookup, out _signalKeys);
             _isValid = true;
         }
 

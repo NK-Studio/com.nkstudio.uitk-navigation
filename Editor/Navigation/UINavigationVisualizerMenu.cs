@@ -10,14 +10,15 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
     {
         private const string MenuPath = "Tools/UI Navigation/Follow Play Mode In Graph";
 
-        [MenuItem(MenuPath, priority = 100)]
+        // Ordered right after Tools/UI Navigation/Key Catalog (priority 100).
+        [MenuItem(MenuPath, priority = 101)]
         private static void Toggle()
         {
             UINavigationGraphVisualizer.Enabled = !UINavigationGraphVisualizer.Enabled;
             Menu.SetChecked(MenuPath, UINavigationGraphVisualizer.Enabled);
         }
 
-        [MenuItem(MenuPath, isValidateFunction: true)]
+        [MenuItem(MenuPath, isValidateFunction: true, priority = 101)]
         private static bool ToggleValidate()
         {
             Menu.SetChecked(MenuPath, UINavigationGraphVisualizer.Enabled);

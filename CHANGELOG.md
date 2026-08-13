@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.5.0] - 2026-08-14
+
+### Added
+
+- `SimpleBaseField` 요소를 추가했습니다. 인스펙터 정렬 라벨과 콘텐츠 컨테이너를 함께 제공하며,
+  `Label`이 비어 있으면 라벨을 그리지 않고 `unity-base-field__aligned`도 해제해 콘텐츠가 행 전체를 차지한다.
+  라벨에 스타일을 붙여야 하는 사용처를 위해 `LabelElement`를 노출한다.
+- 커스텀 인스펙터용 UXML 3종을 `Editor/UXML`에 추가했습니다.
+  `UINavigatorBehaviourEditor.uxml`, `UIBackInputRouterEditor.uxml`, `UIPopupHostEditor.uxml`.
+
+### Changed
+
+- 패키지 버전을 `0.5.0`으로 올렸습니다.
+- `UINavigatorBehaviour` / `UIBackInputRouter` / `UIPopupHost`의 커스텀 인스펙터를 C# 조립에서 UXML + USS로
+  분리했습니다. 스타일시트는 UXML의 `<Style>`이 직접 참조하고, C#은 `CloneTree`와 버튼 연결·검증 갱신만 담당한다.
+- `UIKeyPickerField`를 `BaseField<UIKey>` 상속 대신 `SimpleBaseField` 위에 구성했습니다. 라벨과 픽커/이름변경/
+  비우기 버튼, 커스텀 입력 행이 모두 `SimpleBaseField`의 자식으로 그려진다. 검색 버튼의 왼쪽 마진과 비우기(×)
+  버튼의 오른쪽 마진을 제거해 입력 영역 양 끝에 맞췄고, 라벨의 오른쪽 마진은 테마 값으로 되돌려 기본 필드와
+  같은 위치에서 입력이 시작되도록 했다.
+- `Tools > UI Navigation` 메뉴 순서를 `Key Catalog` → `Follow Play Mode In Graph`로 바꿨습니다.
+- 1586줄이던 `UITransitionPropertyDrawer`를 역할별 8개 파일로 나눴습니다. 드로어는 루트 조립만 담당하고
+  스타일·카드 레이아웃, 채널 카드와 방향 그리드, 프리셋 선택·적용, 프리뷰 재생, 선택 요소 해석,
+  usageHints 동기화가 각각 `internal static` 클래스로 분리된다. 동작과 UI는 그대로다.
+- 팝업 호스트가 시작 시 `PanelRenderer`를 껐다 켜서 패널 비주얼 트리를 통째로 다시 만들던 것을 UI 리로드 콜백
+  재등록으로 대체했습니다. `PanelRenderer.RegisterUIReloadCallback`은 루트가 이미 패널에 붙어 있으면 등록 시점에
+  콜백을 호출하므로, 시작 시의 UI 재생성 비용 없이 같은 복구가 된다.
+- 팝업을 열 때 `UIPopupView` / `UIPopupContent` / `UIPopupBackdrop`을 각각 `Query<T>().ToList()`로 찾던 세 번의
+  전체 순회와 리스트 할당을, 컨테이너 1회 + View 1회의 무할당 순회로 합쳤습니다.
+- `UIPopupHandle.Completion`의 `TaskCompletionSource`를 처음 요청할 때 생성하도록 바꿨습니다. 이미 종료된
+  핸들은 저장해 둔 결과·취소 토큰·예외를 그대로 재생하므로, 이벤트만 구독하는 사용처는 Task를 만들지 않는다.
+- 프리셋도 없고 활성 채널도 없을 때 `UITransitionFactory.Build`가 `UIAnimation`과 4개 채널을 만들었다 버리던
+  경로를 제거하고, backdrop이나 content가 없으면 해당 전환 빌드 자체를 건너뛰도록 했습니다.
+- 팝업 인스턴스마다 만들던 Close 델리게이트 2개와 취소 등록용 중첩 클로저를 인스턴스가 보유한 단일 델리게이트로
+  정리했습니다.
+
+### Removed
+
+- `Tools > UI Navigation > Rebuild Sample Graph` 메뉴와 이 메뉴만 사용하던 샘플 그래프 생성 헬퍼를 제거했습니다.
+
+### Fixed
+
+- `UINavigatorBehaviourEditor.uss`가 UI Toolkit이 지원하지 않는 `:last-child`를 사용해 임포트 시
+  `Unknown pseudo class` 경고가 나던 것을 명시적 클래스로 대체했습니다.
+
 ## [0.4.0] - 2026-08-09
 
 ### Added
@@ -77,6 +121,9 @@
 
 ### Fixed
 
+- Enter Play Mode Settings에서 Domain Reload와 Scene Reload를 모두 끈 경우, 플레이 시작 시 이미 패널에 붙어 있던
+  `NavElement`에 `On Start`가 다시 적용되지 않아 `Instant Hide` View가 초기 프레임에 노출되던 문제. 플레이 세션이
+  시작되면 기존 Player 패널 요소를 부모부터 다시 준비하고 초기화된 `UIViewRegistry`에도 강제로 재등록한다.
 - Enter Play Mode Settings가 `Do not reload Domain or Scene`일 때 두 번째 플레이부터 시작 Show 애니메이션이
   생략되던 문제. 도메인 리로드를 끄면 static이 세션을 넘어 살아남아 `UIViewRegistry`에 이전 세션의 인스턴스가
   남고, 첫 프레임의 Show 명령이 아직 다시 붙지도 않은 그 요소로 흘러갔다. 세션 간 유지되면 안 되는 static

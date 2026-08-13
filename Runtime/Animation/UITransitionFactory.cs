@@ -157,8 +157,16 @@ namespace NKStudio.UITKNavigation.Animation
             ScaleChannelOptions scaleOpts,
             RotateChannelOptions rotateOpts)
         {
-            UIAnimation animation = UITransitionPresetLibrary.Build(category, variant, type)
-                                    ?? new UIAnimation { Type = type };
+            UIAnimation animation = UITransitionPresetLibrary.Build(category, variant, type);
+            if (animation == null)
+            {
+                // Without a preset and without an enabled channel the result is discarded anyway,
+                // so the animation and its four channels are never allocated.
+                if (!moveOpts.Enabled && !fadeOpts.Enabled && !scaleOpts.Enabled && !rotateOpts.Enabled)
+                    return null;
+
+                animation = new UIAnimation { Type = type };
+            }
 
             if (moveOpts.Enabled)
             {

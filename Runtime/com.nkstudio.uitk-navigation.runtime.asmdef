@@ -1,6 +1,6 @@
 {
     "name": "com.nkstudio.uitk-navigation.runtime",
-    "rootNamespace": "NKStudio.UITKNavigation",
+    "rootNamespace": "NKStudio.UITKNavigation.Runtime",
     "references": [
         "LitMotion",
         "LitMotion.Extensions",

@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <Style src="project://database/Packages/com.nkstudio.uitk-navigation/Editor/Styles/UIPopupHostEditor.uss?fileID=7433441132597879392&amp;guid=86e8b8bf4c9e45ac95f8cac41a121b99&amp;type=3#UIPopupHostEditor"/>
+    <ui:VisualElement class="uipopup-host-inspector">
+        <ui:VisualElement class="uipopup-host-inspector__hero">
+            <ui:Label text="POP" class="uipopup-host-inspector__hero-icon"/>
+            <ui:VisualElement class="uipopup-host-inspector__hero-copy">
+                <ui:Label text="UI Popup Host" class="uipopup-host-inspector__hero-title"/>
+                <ui:Label text="패널별 팝업 스택과 표시 수명주기를 관리합니다." class="uipopup-host-inspector__hero-subtitle"/>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement class="uipopup-host-inspector__card">
+            <ui:VisualElement class="uipopup-host-inspector__card-heading">
+                <ui:Label text="Panel Binding" class="uipopup-host-inspector__card-title"/>
+            </ui:VisualElement>
+            <ui:Label text="팝업 템플릿을 인스턴스화할 UI 패널입니다." class="uipopup-host-inspector__card-description"/>
+            <uie:PropertyField binding-path="panelRenderer" label="Panel Renderer" class="uipopup-host-inspector__field"/>
+            <ui:Label text="비워두면 같은 GameObject의 Panel Renderer를 자동으로 사용합니다." class="uipopup-host-inspector__hint"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
