@@ -20,6 +20,9 @@
   버튼의 오른쪽 마진을 제거해 입력 영역 양 끝에 맞췄고, 라벨의 오른쪽 마진은 테마 값으로 되돌려 기본 필드와
   같은 위치에서 입력이 시작되도록 했다.
 - `Tools > UI Navigation` 메뉴 순서를 `Key Catalog` → `Follow Play Mode In Graph`로 바꿨습니다.
+- 1413줄이던 `UIKeyPropertyDrawers`를 정리했습니다. 그래프 노드 타입을 그리던 드로어 7개와 리스트 인프라를
+  `Editor/Navigation`으로 옮겨 역할별 파일로 나누고, `Editor/Catalog`에는 `UIKey` 관련 드로어 2개만 남겼다.
+  `UIKeyPickerField`를 만들던 static 팩터리도 그 요소 자신에게로 옮겼다.
 - 1586줄이던 `UITransitionPropertyDrawer`를 역할별 8개 파일로 나눴습니다. 드로어는 루트 조립만 담당하고
   스타일·카드 레이아웃, 채널 카드와 방향 그리드, 프리셋 선택·적용, 프리뷰 재생, 선택 요소 해석,
   usageHints 동기화가 각각 `internal static` 클래스로 분리된다. 동작과 UI는 그대로다.
