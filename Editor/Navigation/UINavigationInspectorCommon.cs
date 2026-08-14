@@ -78,10 +78,25 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                     return;
                 }
 
-                float leftOffset =
-                    referenceInput.worldBound.xMin - input.worldBound.xMin;
-                float rightOffset =
-                    input.worldBound.xMax - referenceInput.worldBound.xMax;
+                // The reference sits outside the card that holds the field, so following it
+                // blindly drags the input past the card and whatever is at the end of the row
+                // gets clipped. The input never leaves the box of the field that owns it, which
+                // is what keeps the padding of the card and the margins of the field intact.
+                Rect limit = field.worldBound;
+                float limitMin = limit.xMin +
+                    field.resolvedStyle.paddingLeft +
+                    field.resolvedStyle.borderLeftWidth;
+                float limitMax = limit.xMax -
+                    field.resolvedStyle.paddingRight -
+                    field.resolvedStyle.borderRightWidth;
+
+                float targetMin = Mathf.Max(referenceInput.worldBound.xMin, limitMin);
+                float targetMax = Mathf.Min(referenceInput.worldBound.xMax, limitMax);
+                if (targetMax <= targetMin)
+                    return;
+
+                float leftOffset = targetMin - input.worldBound.xMin;
+                float rightOffset = input.worldBound.xMax - targetMax;
                 if (Mathf.Abs(leftOffset) <= 0.25f &&
                     Mathf.Abs(rightOffset) <= 0.25f)
                 {

@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.5.1] - 2026-08-14
+
+### Changed
+
+- 패키지 버전을 `0.5.1`로 올렸습니다.
+- 637줄이던 `UIKeyProjectService`를 자산 포맷 기준으로 나눴습니다. `UIKeyUsage`/`UIKeyUsageKind`가 자기 파일로
+  빠지고, UXML 속성을 읽고 쓰는 `UIKeyUxmlUsages`와 저작 그래프를 읽고 쓰는 `UIKeyGraphUsages`가 분리됐다.
+  `UIKeyProjectService`는 스캔·이름 변경 진입점과 백업/롤백 트랜잭션만 담당한다. 외부 호출부는 그대로다.
+- 1413줄이던 `UIKeyPropertyDrawers`를 정리했습니다. 그래프 노드 타입을 그리던 드로어 7개와 리스트 인프라를
+  `Editor/Navigation`으로 옮겨 역할별 파일로 나누고, `Editor/Catalog`에는 `UIKey` 관련 드로어 2개만 남겼다.
+  `UIKeyPickerField`를 만들던 static 팩터리도 그 요소 자신에게로 옮겼다.
+- 1586줄이던 `UITransitionPropertyDrawer`를 역할별 8개 파일로 나눴습니다. 드로어는 루트 조립만 담당하고
+  스타일·카드 레이아웃, 채널 카드와 방향 그리드, 프리셋 선택·적용, 프리뷰 재생, 선택 요소 해석,
+  usageHints 동기화가 각각 `internal static` 클래스로 분리된다. 동작과 UI는 그대로다.
+- `UIKeyPickerField`가 `SimpleBaseField`를 자식으로 두는 대신 직접 상속하도록 바꿨습니다. 라벨과 입력 컨테이너를
+  요소 하나가 갖게 되어 중첩이 한 겹 줄고, 테마의 행 마진도 한 번만 적용된다.
+- Portal Condition 인스펙터의 `Key` 행에도 `MatchInputBoundsToNodeOption`을 적용해, 같은 카드의 `Type` /
+  `Signal Address` 행과 입력 박스가 정렬되도록 했습니다.
+- `UIKeyPickerField`의 행이 콘텐츠가 아니라 주어진 공간에 맞춰 크기를 잡도록 `flex-basis`를 0으로 두고, 검색
+  버튼은 좁은 폭에서 주소 문자열을 `…`로 줄이도록 했습니다. 이전에는 주소가 길면 행 전체가 넓어지면서 뒤쪽
+  버튼이 잘리고, 버튼 텍스트가 옆 버튼 위로 흘러 그려졌다.
+- 그래프 노드 인스펙터 카드의 직계 필드에 상하 1px 마진을 USS로 명시했습니다. 두 행 사이 간격이 항상 2px이 된다.
+
+### Fixed
+
+- 그래프 노드 인스펙터 카드의 필드가 카드 밖으로 그려지던 것을 고쳤습니다. `MatchInputBoundsToNodeOption`이
+  카드 바깥 노드 옵션 필드의 좌표에 입력 박스를 맞추면서 매 레이아웃마다 마진 보정으로 카드의 `padding`과
+  필드의 `margin`을 상쇄해 버렸다. 이제 입력 박스는 자기 필드의 콘텐츠 박스를 넘지 않도록 제한된다.
+- 그래프 노드 인스펙터 카드에서 `UIKeyPickerField` 행만 위아래 여백이 두껍던 것을 고쳤습니다. 래퍼와 그 안의
+  `SimpleBaseField`가 테마 마진 1px을 각각 갖고, 행 안의 버튼들도 자기 세로 마진을 더하고 있었다. 이제 행
+  마진은 한 번만 붙고, 버튼들의 세로 마진은 0으로 지운다.
+
 ## [0.5.0] - 2026-08-14
 
 ### Added
@@ -20,12 +52,6 @@
   버튼의 오른쪽 마진을 제거해 입력 영역 양 끝에 맞췄고, 라벨의 오른쪽 마진은 테마 값으로 되돌려 기본 필드와
   같은 위치에서 입력이 시작되도록 했다.
 - `Tools > UI Navigation` 메뉴 순서를 `Key Catalog` → `Follow Play Mode In Graph`로 바꿨습니다.
-- 1413줄이던 `UIKeyPropertyDrawers`를 정리했습니다. 그래프 노드 타입을 그리던 드로어 7개와 리스트 인프라를
-  `Editor/Navigation`으로 옮겨 역할별 파일로 나누고, `Editor/Catalog`에는 `UIKey` 관련 드로어 2개만 남겼다.
-  `UIKeyPickerField`를 만들던 static 팩터리도 그 요소 자신에게로 옮겼다.
-- 1586줄이던 `UITransitionPropertyDrawer`를 역할별 8개 파일로 나눴습니다. 드로어는 루트 조립만 담당하고
-  스타일·카드 레이아웃, 채널 카드와 방향 그리드, 프리셋 선택·적용, 프리뷰 재생, 선택 요소 해석,
-  usageHints 동기화가 각각 `internal static` 클래스로 분리된다. 동작과 UI는 그대로다.
 - 팝업 호스트가 시작 시 `PanelRenderer`를 껐다 켜서 패널 비주얼 트리를 통째로 다시 만들던 것을 UI 리로드 콜백
   재등록으로 대체했습니다. `PanelRenderer.RegisterUIReloadCallback`은 루트가 이미 패널에 붙어 있으면 등록 시점에
   콜백을 호출하므로, 시작 시의 UI 재생성 비용 없이 같은 복구가 된다.

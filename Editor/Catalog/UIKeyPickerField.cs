@@ -19,7 +19,7 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
         }
     }
 
-    internal sealed class UIKeyPickerField : VisualElement
+    internal sealed class UIKeyPickerField : SimpleBaseField
     {
         private readonly Func<UIKey> _getter;
         private readonly Action<UIKey> _setter;
@@ -60,28 +60,24 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             _kindGetter = kindGetter ?? (() => UIKeyCatalogKind.Signal);
             _owner = owner;
 
-            // SimpleBaseField supplies the aligned label and the input container, so the picker
-            // only fills that container with its own rows. An empty label draws no label at all.
-            var field = new SimpleBaseField
-            {
-                name = "field",
-                Label = label ?? string.Empty
-            };
-            Add(field);
+            // The picker is the field itself: the base class draws the aligned label and hands
+            // over the input container that the rows below fill. An empty label draws no label
+            // at all, and being one element means one row margin from the theme, not two.
+            Label = label ?? string.Empty;
 
-            VisualElement input = field.contentContainer;
+            VisualElement input = contentContainer;
 
-            // SimpleBaseField zeroes the label margin; the theme value is restored so the input
+            // The base class zeroes the label margin; the theme value is restored so the input
             // starts exactly where a built-in field's input does.
-            field.LabelElement.style.marginRight = StyleKeyword.Null;
+            LabelElement.style.marginRight = StyleKeyword.Null;
 
             if (graphInspectorLayout)
             {
                 AddToClassList(GraphPropertyFieldUssClassName);
                 AddToClassList(PropertyField.ussClassName);
 
-                field.LabelElement.AddToClassList(GraphPropertyFieldLabelUssClassName);
-                field.LabelElement.AddToClassList(PropertyField.labelUssClassName);
+                LabelElement.AddToClassList(GraphPropertyFieldLabelUssClassName);
+                LabelElement.AddToClassList(PropertyField.labelUssClassName);
                 input.AddToClassList(GraphPropertyFieldInputUssClassName);
                 input.AddToClassList(PropertyField.inputUssClassName);
             }
@@ -90,6 +86,10 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             // stays borderless instead of framing them like a text field.
             input.style.flexDirection = FlexDirection.Column;
             input.style.alignItems = Align.Stretch;
+            // A flex basis of auto would size the container after its content — a long address
+            // plus the buttons — so the row would grow past the space it was given instead of
+            // shrinking the picker button.
+            input.style.flexBasis = 0f;
             input.style.minWidth = 0f;
             input.style.paddingTop = 0f;
             input.style.paddingBottom = 0f;
@@ -106,6 +106,11 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             _pickerButton.style.flexGrow = 1f;
             _pickerButton.style.flexShrink = 1f;
             _pickerButton.style.minWidth = 0f;
+            // The button is the only part of the row that shrinks, so a long address is cut with
+            // an ellipsis instead of being drawn over the buttons next to it.
+            _pickerButton.style.overflow = Overflow.Hidden;
+            _pickerButton.style.whiteSpace = WhiteSpace.NoWrap;
+            _pickerButton.style.textOverflow = TextOverflow.Ellipsis;
             // The theme gives buttons a 3px side margin; the first one starts at the input edge.
             _pickerButton.style.marginLeft = 0f;
             _pickerButton.style.unityTextAlign = TextAnchor.MiddleLeft;
@@ -138,6 +143,14 @@ namespace NKStudio.UITKNavigation.Editor.Catalog
             _addButton.style.minWidth = 44f;
             _addButton.style.flexShrink = 0f;
             mainRow.Add(_addButton);
+
+            // Theme buttons and labels bring their own vertical margin. Left alone it stacks on
+            // top of the row margin and makes the picker taller than the plain fields next to it.
+            foreach (VisualElement child in mainRow.Children())
+            {
+                child.style.marginTop = 0f;
+                child.style.marginBottom = 0f;
+            }
 
             _customRow = new VisualElement();
             _customRow.style.flexDirection = FlexDirection.Row;

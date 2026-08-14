@@ -47,6 +47,13 @@
     border-radius: 7px;
 }
 
+/* One row of the card owns 1px above and below itself, so two stacked rows sit 2px apart. */
+.uinavigation-phase__body > .unity-base-field,
+.uinavigation-phase__body > .unity-property-field {
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+
 .uinavigation-list-root {
     margin-bottom: 7px;
 }

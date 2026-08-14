@@ -94,6 +94,9 @@ namespace NKStudio.UITKNavigation.Editor.Navigation
                 customSignalField);
             UINavigationInspectorLayout.MatchInputBoundsToNodeOption(
                 root,
+                keyField);
+            UINavigationInspectorLayout.MatchInputBoundsToNodeOption(
+                root,
                 toggleField);
 
             void Refresh()
